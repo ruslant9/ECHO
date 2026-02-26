@@ -1,0 +1,83 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+  
+  .dark {
+    color-scheme: dark;
+  }
+}
+
+/* ==========================================================================
+   КАСТОМНЫЕ СКРОЛЛБАРЫ
+   ========================================================================== */
+
+/* === Базовый кастомный скроллбар (custom-scrollbar) === */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+/* Фон скроллбара (светлая тема) */
+.custom-scrollbar::-webkit-scrollbar-track {
+  background-color: transparent; 
+}
+
+/* Ползунок (светлая тема) */
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #d4d4d8; /* zinc-300 */
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #a1a1aa; /* zinc-400 */
+}
+
+/* --- ТЕМНАЯ ТЕМА для custom-scrollbar --- */
+.dark .custom-scrollbar::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #3f3f46; /* zinc-700 */
+}
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #52525b; /* zinc-600 */
+}
+
+/* ========================================================================== */
+
+/* === Стеклянный скроллбар для модалок (glass-scrollbar) === */
+.glass-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+/* Фон скроллбара (светлая тема) */
+.glass-scrollbar::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+
+/* Ползунок (светлая тема) */
+.glass-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 10px;
+}
+
+/* --- ТЕМНАЯ ТЕМА для glass-scrollbar --- */
+.dark .glass-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* ========================================================================== */
+
+/* === Утилиты для полного скрытия скроллбара (используются в каруселях) === */
+.scrollbar-hide::-webkit-scrollbar,
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-hide,
+.no-scrollbar {
+  -ms-overflow-style: none;  /* для IE и Edge */
+  scrollbar-width: none;     /* для Firefox */
+}

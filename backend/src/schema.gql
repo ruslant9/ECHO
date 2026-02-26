@@ -1,0 +1,702 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+type Artist {
+  avatar: String
+  id: Int!
+  name: String!
+}
+
+input ChangePasswordInput {
+  newPassword: String!
+  oldPassword: String!
+}
+
+type Comment {
+  author: User!
+  content: String!
+  createdAt: DateTime!
+  dislikesCount: Int!
+  id: Int!
+  likesCount: Int!
+  parentId: Int
+  post: Post!
+  replies: [Comment]
+  score: Int!
+  userVote: String
+}
+
+input ConfirmEmailInput {
+  code: String!
+  userId: Int!
+}
+
+type Conversation {
+  avatar: String
+  description: String
+  hasLeft: Boolean!
+  id: Int!
+  isAnonymous: Boolean
+  isArchived: Boolean!
+  isGroup: Boolean!
+  isManuallyUnread: Boolean!
+  isPinned: Boolean!
+  lastMessage: Message
+  mutedUntil: DateTime
+  myRole: String
+  participant: User
+  participantsCount: Int!
+  pinOrder: Int
+  slug: String
+  title: String
+  type: ConversationType!
+  unreadCount: Int!
+  updatedAt: DateTime!
+  viewsCount: Int
+}
+
+"""Участник беседы (пользователь + роль в беседе)"""
+type ConversationParticipantUser {
+  avatar: String
+  id: Int!
+
+  """Статус онлайн"""
+  isOnline: Boolean!
+
+  """Время последнего захода (когда не в сети)"""
+  lastOnlineAt: DateTime
+  name: String
+
+  """Роль в беседе: ADMIN или MEMBER"""
+  role: String!
+  username: String!
+}
+
+type ConversationStats {
+  daily: [ConversationStatsDay!]!
+  firstMessageAt: DateTime
+  lastMessageAt: DateTime
+  pinnedMessagesCount: Int!
+  receivedCount: Int!
+  receivedReactions: Int!
+  sentCount: Int!
+  sentReactions: Int!
+  totalMessages: Int!
+  totalReactions: Int!
+}
+
+type ConversationStatsDay {
+  date: String!
+  received: Int!
+  sent: Int!
+  total: Int!
+}
+
+enum ConversationType {
+  CHANNEL
+  DIRECT
+  GROUP
+}
+
+input CreateAlbumInput {
+  artistId: Int!
+  coverUrl: String
+  genre: String
+  releaseDate: DateTime
+  title: String!
+  year: Int
+}
+
+input CreateArtistInput {
+  avatar: String
+  bio: String
+  name: String!
+}
+
+input CreateChannelInput {
+  avatar: String
+  description: String
+  slug: String
+  title: String!
+}
+
+input CreatePlaylistInput {
+  coverUrl: String
+  description: String
+  isPrivate: Boolean! = false
+  title: String!
+}
+
+input CreatePollInput {
+  allowMultipleVotes: Boolean! = false
+  allowRevote: Boolean! = true
+  endDate: DateTime!
+  isAnonymous: Boolean! = false
+  options: [CreatePollOptionInput!]!
+  question: String!
+}
+
+input CreatePollOptionInput {
+  text: String!
+}
+
+input CreatePostInput {
+  commentsDisabled: Boolean = false
+  content: String
+  images: [String]
+  poll: CreatePollInput
+  scheduledAt: DateTime
+}
+
+input CreateTrackInput {
+  albumId: Int
+  artistId: Int!
+  coverUrl: String
+  duration: Int!
+  featuredArtistIds: [Int]
+  genre: String
+  releaseDate: DateTime
+  title: String!
+  url: String!
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+type FeedItem {
+  comment: Comment
+  post: Post
+  type: String!
+  users: [User!]
+}
+
+type FriendRequestOutput {
+  id: Int!
+  sender: User!
+}
+
+type FriendshipOutput {
+  friend: User!
+  id: Int!
+  score: Int!
+}
+
+type InviteLink {
+  code: String!
+  conversation: Conversation!
+  conversationId: Int!
+  createdAt: DateTime!
+  creator: User!
+  creatorId: Int!
+  expiresAt: DateTime
+  id: Int!
+  usageLimit: Int
+  usedCount: Int!
+}
+
+type LoginResponse {
+  access_token: String
+  emailSent: Boolean
+  user: User
+  userId: Int
+}
+
+input LoginUserInput {
+  email: String!
+  password: String!
+}
+
+type Message {
+  content: String!
+  conversationId: Int!
+  createdAt: DateTime!
+
+  """Дата редактирования текста (не закрепления)"""
+  editedAt: DateTime
+  forwardedFrom: User
+  id: Int!
+
+  """Список URL изображений"""
+  images: [String!]
+  isAnonymous: Boolean
+  isPinned: Boolean!
+  isRead: Boolean!
+  reactions: [MessageReaction!]
+
+  """Кто прочитал сообщение (для тултипа «Прочитано»)"""
+  readBy: [MessageReadBy!]
+  replyTo: ReplyContext
+  sender: User!
+  senderId: Int!
+
+  """Упоминания пользователей в системном сообщении (для кликабельных имён)"""
+  systemMessageMentions: [SystemMessageMention!]
+  type: String!
+  updatedAt: DateTime!
+  viewsCount: Int
+}
+
+type MessageReaction {
+  emoji: String!
+  id: Int!
+  user: User!
+  userId: Int!
+}
+
+type MessageReadBy {
+  readAt: DateTime!
+  user: User!
+}
+
+type Mutation {
+  acceptFriendRequest(requestId: Int!): Boolean!
+
+  """Пригласить участника в беседу (только администратор)"""
+  addParticipantToConversation(conversationId: Int!, userId: Int!): Boolean!
+  addTrackToPlaylist(playlistId: Int!, trackId: Int!): Boolean!
+  addVibeComment(content: String!, vibeId: Int!): Boolean!
+  blockUser(targetId: Int!): Boolean!
+  cancelFriendRequest(requestId: Int!): Boolean!
+  changePassword(input: ChangePasswordInput!): Boolean!
+  checkChannelSlug(slug: String!): Boolean!
+  clearAllNotifications: Boolean!
+  clearComments(postId: Int!, type: String!): Int!
+  confirmEmail(confirmEmailInput: ConfirmEmailInput!): LoginResponse!
+  createAlbumAdmin(input: CreateAlbumInput!): Boolean!
+  createArtistAdmin(input: CreateArtistInput!): Artist!
+  createChannel(input: CreateChannelInput!): Conversation!
+  createComment(content: String!, parentId: Int, postId: Int!): Comment!
+
+  """Создать беседу (групповой чат)"""
+  createGroupConversation(avatar: String, participantIds: [Int!]!, title: String!): Int!
+
+  """Создать пригласительную ссылку (возвращает код)"""
+  createInviteLink(conversationId: Int!, expiresInMinutes: Int, usageLimit: Int): String!
+  createPlaylist(input: CreatePlaylistInput!): Playlist!
+  createPost(createPostInput: CreatePostInput!): Post!
+  createTrackAdmin(input: CreateTrackInput!): Track!
+  createVibe(description: String, hashtags: [String!]!, isPrivate: Boolean!, videoUrl: String!): Int!
+  deleteComment(commentId: Int!): Int!
+
+  """Удалить диалог целиком или скрыть для себя"""
+  deleteConversation(
+    conversationId: Int!
+
+    """'ME' или 'ALL'"""
+    type: String!
+  ): Boolean!
+  deleteFriendRequestNotification(initiatorId: Int!): Boolean!
+  deleteManyComments(commentIds: [Int!]!): Int!
+
+  """Удалить сообщение"""
+  deleteMessage(
+    messageId: Int!
+
+    """'ME' или 'ALL'"""
+    type: String!
+  ): Boolean!
+  deleteMyAccount(password: String!): Boolean!
+  deleteNotification(id: Int!): Boolean!
+  deletePlaylist(id: Int!): Boolean!
+  deletePost(postId: Int!): Boolean!
+  deleteVibe(vibeId: Int!): Boolean!
+  deleteVibeComment(commentId: Int!): Boolean!
+
+  """Редактировать сообщение"""
+  editMessage(content: String!, messageId: Int!): Message!
+
+  """Переслать сообщение в один или несколько чатов"""
+  forwardMessage(messageId: Int!, targetConversationIds: [Int!]!): [Message!]!
+
+  """Увеличить счетчик просмотров сообщений в канале"""
+  incrementMessageViews(messageIds: [Int!]!): Boolean!
+  incrementVibeViews(vibeId: Int!): Boolean!
+  joinChannel(conversationId: Int!): Boolean!
+
+  """Вступить в беседу/канал по коду приглашения"""
+  joinViaInvite(code: String!): Boolean!
+
+  """Исключить участника из беседы"""
+  kickFromConversation(conversationId: Int!, userId: Int!): Boolean!
+
+  """Выйти из беседы. Для администратора обязателен newAdminUserId."""
+  leaveConversation(conversationId: Int!, newAdminUserId: Int): Boolean!
+  login(loginUserInput: LoginUserInput!): LoginResponse!
+
+  """Пометить диалог как непрочитанный"""
+  markConversationAsUnread(conversationId: Int!): Boolean!
+
+  """Пометить сообщения в диалоге как прочитанные"""
+  markMessagesRead(conversationId: Int!): Boolean!
+  markNotificationsRead(ids: [Int!]!): Boolean!
+  publishPostNow(postId: Int!): Post!
+  register(registerUserInput: RegisterUserInput!): LoginResponse!
+  rejectFriendRequest(requestId: Int!): Boolean!
+  removeFriend(friendId: Int!): Boolean!
+  removeTrackFromPlaylist(playlistId: Int!, trackId: Int!): Boolean!
+  repostPost(postId: Int!): Post!
+  repostVibe(vibeId: Int!): Boolean!
+  requestPasswordReset(requestPasswordResetInput: RequestPasswordResetInput!): LoginResponse!
+  resetPassword(resetPasswordInput: ResetPasswordInput!): Boolean!
+  restartServer: Boolean!
+
+  """Удалить пригласительную ссылку"""
+  revokeInviteLink(inviteId: Int!): Boolean!
+  sendFriendRequest(targetId: Int!): Boolean!
+
+  """Отправить сообщение"""
+  sendMessage(content: String!, conversationId: Int, images: [String!], replyToId: Int, targetUserId: Int): Message!
+  startServer: Boolean!
+  stopServer: Boolean!
+  terminateAllOtherSessions(password: String!): Boolean!
+  terminateSession(password: String!, sessionId: Int!): Boolean!
+
+  """Архивировать/разархивировать диалог"""
+  toggleArchiveConversation(conversationId: Int!): Boolean!
+  toggleMessageReaction(emoji: String!, messageId: Int!): Message!
+
+  """Включить/выключить уведомления"""
+  toggleMuteConversation(conversationId: Int!): Boolean!
+
+  """Закрепить/открепить диалог"""
+  togglePinConversation(conversationId: Int!): Boolean!
+
+  """Закрепить/открепить сообщение"""
+  togglePinMessage(messageId: Int!): Message!
+  togglePinPost(postId: Int!): Boolean!
+  togglePollVote(optionIds: [Int!]!, pollId: Int!): Poll!
+  togglePostLike(postId: Int!): Post!
+  toggleTrackLike(trackId: Int!): Boolean!
+  toggleVibeLike(vibeId: Int!): Boolean!
+  unblockUser(targetId: Int!): Boolean!
+  updateComment(commentId: Int!, content: String!): Comment!
+
+  """Обновить беседу или канал"""
+  updateGroupConversation(avatar: String, conversationId: Int!, description: String, slug: String, title: String): Boolean!
+  updateNotificationSettings(input: UpdateNotificationSettingsInput!): Boolean!
+
+  """Обновить порядок закрепленных диалогов"""
+  updatePinOrder(conversationIds: [Int!]!): Boolean!
+  updatePlaylist(input: UpdatePlaylistInput!): Playlist!
+  updatePost(postId: Int!, updatePostInput: UpdatePostInput!): Post!
+  updateProfile(input: UpdateUserInput!): User!
+  voteComment(commentId: Int!, type: String!): Comment!
+}
+
+type Notification {
+  commentId: Int
+  createdAt: DateTime!
+  id: Int!
+  imageUrl: String
+  initiator: User
+  isRead: Boolean!
+  message: String!
+  postId: Int
+  type: String!
+  vibeCommentId: Int
+  vibeId: Int
+}
+
+type NotificationSettingsModel {
+  id: Int
+  muteAllUntil: DateTime
+  notificationSound: String
+  notifyOnComments: Boolean
+  notifyOnFriendRequests: Boolean
+  notifyOnLikes: Boolean
+  notifyOnMessages: Boolean
+  notifyOnReposts: Boolean
+  userId: Int!
+}
+
+type OutgoingRequestOutput {
+  id: Int!
+  receiver: User!
+}
+
+type Playlist {
+  coverUrl: String
+  createdAt: DateTime!
+  id: Int!
+  owner: User!
+  title: String!
+  tracks: [Track!]
+}
+
+type Poll {
+  allowMultipleVotes: Boolean!
+  allowRevote: Boolean!
+  endDate: DateTime!
+  id: Int!
+  isAnonymous: Boolean!
+  options: [PollOption!]!
+  postId: Int!
+  question: String!
+}
+
+type PollOption {
+  id: Int!
+  pollId: Int!
+  text: String!
+  votesCount: Int!
+}
+
+type PollVoterOutput {
+  optionId: Int!
+  user: User!
+}
+
+type Post {
+  author: User!
+  comments: [Comment!]
+  commentsCount: Int!
+  commentsDisabled: Boolean!
+  content: String
+  createdAt: DateTime!
+  id: Int!
+  images: [String]
+  isLikedByUser: Boolean
+  isPinned: Boolean!
+  isPublished: Boolean!
+  likesCount: Int!
+  originalPost: Post
+  poll: Poll
+  repostsCount: Int!
+  scheduledAt: DateTime
+  vibe: Vibe
+}
+
+type Query {
+  """Получить архивированные диалоги"""
+  archivedConversations: [Conversation!]!
+  checkUsername(username: String!): Boolean!
+  comments(postId: Int!, sort: String = "popular"): [Comment!]!
+
+  """Получить участников беседы"""
+  conversationParticipants(conversationId: Int!): [ConversationParticipantUser!]!
+
+  """Статистика по диалогу"""
+  conversationStats(conversationId: Int!): ConversationStats!
+
+  """Получить список всех диалогов пользователя"""
+  conversations: [Conversation!]!
+  getCommentLikes(commentId: Int!): [User!]!
+
+  """Получить информацию о беседе по коду приглашения"""
+  getConversationByInvite(code: String!): Conversation
+
+  """Получить активные ссылки беседы"""
+  getConversationInvites(conversationId: Int!): [InviteLink!]!
+  getPollVoters(pollId: Int!): [PollVoterOutput!]!
+  getPostLikes(postId: Int!): [User!]!
+  getPostReposters(postId: Int!): [User!]!
+  getUserPollVotes(pollId: Int!): [UserPollVoteOutput!]!
+  getVibeComments(vibeId: Int!): [VibeComment!]!
+  getVibeLikes(vibeId: Int!): [User!]!
+  getVibeReposters(vibeId: Int!): [User!]!
+  getVibesFeed(feedType: String!): [Vibe!]!
+  incomingRequests: [FriendRequestOutput!]!
+  me: User!
+
+  """Получить сообщения для конкретного диалога"""
+  messages(conversationId: Int!, cursor: Int): [Message!]!
+  musicRecommendations: [Track!]!
+  myFriends: [FriendshipOutput!]!
+  myMusicLibrary: [Track!]!
+  myNotificationSettings: NotificationSettingsModel!
+  myNotifications: [Notification!]!
+  myPlaylists: [Playlist!]!
+  myScheduledPosts: [Post!]!
+  mySessions: [Session!]!
+  outgoingRequests: [OutgoingRequestOutput!]!
+  playlist(id: Int!): Playlist
+  post(id: Int!): Post!
+  posts(sort: String = "new"): [Post!]!
+  recommendationFeed: [FeedItem!]!
+  sayHello: String!
+  searchArtistsAdmin(query: String!): [Artist!]!
+
+  """Поиск каналов и чатов"""
+  searchConversations(query: String!): [Conversation!]!
+  searchMusic(query: String!): [Track!]!
+  searchUsers(city: String, gender: String, query: String, registeredAfter: String): [User!]!
+  serverStats: ServerStats!
+
+  """Получить количество диалогов с непрочитанными сообщениями"""
+  unreadConversationsCount: Int!
+  user(id: Int!): User!
+  vibe(id: Int!): Vibe
+}
+
+input RegisterUserInput {
+  email: String!
+  gender: String
+  name: String
+  password: String!
+  username: String!
+}
+
+type ReplyContext {
+  content: String!
+  id: Int!
+
+  """Список URL изображений, прикреплённых к сообщению"""
+  images: [String!]
+  sender: User!
+}
+
+input RequestPasswordResetInput {
+  email: String!
+}
+
+input ResetPasswordInput {
+  code: String!
+  email: String!
+  newPassword: String!
+}
+
+type ServerStats {
+  onlineUsers: Int!
+  totalComments: Int!
+  totalLikes: Int!
+  totalMessages: Int!
+  totalPosts: Int!
+  totalUsers: Int!
+}
+
+type Session {
+  browser: String
+  city: String
+  device: String
+  id: Int!
+  ip: String!
+  isCurrent: Boolean!
+  lastActive: DateTime!
+  os: String
+}
+
+type SystemMessageMention {
+  name: String!
+  userId: Int!
+}
+
+type Track {
+  artist: Artist!
+  coverUrl: String
+  duration: Int!
+  id: Int!
+  isLiked: Boolean!
+  title: String!
+  url: String!
+}
+
+input UpdateNotificationSettingsInput {
+  muteAllUntil: DateTime
+  notificationSound: String
+  notifyOnComments: Boolean
+  notifyOnFriendRequests: Boolean
+  notifyOnLikes: Boolean
+  notifyOnMessages: Boolean
+  notifyOnReposts: Boolean
+}
+
+input UpdatePlaylistInput {
+  coverUrl: String
+  description: String
+  id: Int!
+  title: String
+}
+
+input UpdatePostInput {
+  commentsDisabled: Boolean
+  content: String
+  endPoll: Boolean
+  images: [String]
+}
+
+input UpdateUserInput {
+  avatar: String
+  banner: String
+  bio: String
+  gender: String
+  location: String
+  name: String
+  username: String
+  website: String
+}
+
+type User {
+  amIBlocked: Boolean
+  avatar: String
+  banner: String
+  bio: String
+  createdAt: DateTime!
+  email: String!
+  followers: [User!]
+  followersCount: Int
+  friends: [User!]
+  friendsCount: Int
+
+  """
+  Статус дружбы относительно смотрящего юзера (FRIEND, REQUEST_SENT, REQUEST_RECEIVED, NONE)
+  """
+  friendshipStatus: String
+  gender: String
+  id: Int!
+  isAdmin: Boolean!
+  isBlockedByMe: Boolean
+  isOnline: Boolean!
+  lastOnlineAt: DateTime
+  likedComments: [Comment!]
+  likedPosts: [Post!]
+  likedVibes: [Vibe!]
+  location: String
+  name: String
+  password: String
+  posts: [Post!]!
+  postsCount: Int
+
+  """ID входящей заявки в друзья (если есть)"""
+  receivedFriendRequestId: Int
+
+  """ID исходящей заявки в друзья (если есть)"""
+  sentFriendRequestId: Int
+  subscriptions: [User!]
+  subscriptionsCount: Int
+  username: String!
+  vibes: [Vibe!]
+  website: String
+}
+
+type UserPollVoteOutput {
+  optionId: Int!
+}
+
+type Vibe {
+  author: User!
+  authorId: Int!
+  commentsCount: Int!
+  createdAt: DateTime!
+  description: String
+  hashtags: [String!]!
+  id: Int!
+  isLikedByUser: Boolean
+  isPrivate: Boolean!
+  likesCount: Int!
+  repostsCount: Int!
+  videoUrl: String!
+  viewsCount: Int!
+}
+
+type VibeComment {
+  author: User!
+  authorId: Int!
+  content: String!
+  createdAt: DateTime!
+  id: Int!
+  vibe: Vibe
+  vibeId: Int!
+}

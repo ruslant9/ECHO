@@ -1,0 +1,195 @@
+/* frontend/components/LiquidSwitch.module.css */
+
+/* Основные переменные и настройки */
+.liquidToggle {
+  --transition: 0.2s;
+  --ease: ease-out;
+  --hue: 144;
+  --unchecked: hsl(240, 5%, 26%);
+  --checked: hsl(
+    var(--hue),
+    calc((8 + (var(--complete) / 100 * (92))) * 1%),
+    calc((81 - (var(--complete) / 100 * (81 - 43))) * 1%)
+  );
+  --height: 32;
+  --width: 64;
+  --border: 3px;
+
+  height: calc(var(--height) * 1px);
+  width: calc(var(--width) * 1px);
+  border-radius: 100px;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  position: relative;
+  overflow: visible;
+  container-type: inline-size;
+  background: #0000;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  transform: translateZ(0);
+}
+
+.knockout {
+  height: calc(var(--height) * 1px);
+  width: calc(var(--width) * 1px);
+  border-radius: 100px;
+  filter: url(#remove-black);
+  position: absolute;
+  inset: 0;
+  will-change: filter;
+  transform: translate3d(0, 0, 0);
+  pointer-events: none;
+}
+
+.indicatorMasked {
+  background: var(--checked);
+  z-index: 12;
+  height: 100%;
+  width: 100%;
+  translate: -50% -50%;
+  container-type: inline-size;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transition: background calc(var(--transition) * 0.5) ease-out;
+  border-radius: 100px; /* ИСПРАВЛЕНИЕ: Эта строка закругляет фоновый слой */
+}
+
+.mask {
+  position: absolute;
+  height: calc(100% - (2 * var(--border)));
+  width: calc(60% - (2 * var(--border)));
+  top: 50%;
+  background: #000;
+  left: var(--border);
+  border-radius: 100px;
+  translate: calc((var(--complete) / 100) * (100cqw - 60cqw - (0 * var(--border)))) -50%;
+  transition-property: height, width, margin, translate;
+  transition-duration: var(--transition);
+  transition-timing-function: var(--ease);
+  will-change: height, width, margin;
+}
+
+.indicatorLiquid {
+  position: absolute;
+  height: calc(100% - (2 * var(--border)));
+  width: calc(60% - (2 * var(--border)));
+  container-type: inline-size;
+  top: 50%;
+  background: #0000;
+  left: var(--border);
+  border-radius: 100px;
+  translate: calc((var(--complete) / 100) * (100cqw - 100% - (2 * var(--border)))) -50%;
+  transition-property: scale;
+  transition-duration: var(--transition);
+  transition-timing-function: var(--ease);
+}
+
+.shadow {
+  opacity: 0;
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 100px;
+  transition: opacity var(--transition) var(--ease);
+  z-index: 20;
+  box-shadow: 
+    1px -1px 2px hsl(0 0% 100% / 0.5) inset,
+    0px -1px 2px hsl(0 0% 100% / 0.5) inset,
+    -1px -1px 2px hsl(0 0% 100% / 0.5) inset,
+    1px 1px 2px hsl(0 0% 30% / 0.5) inset,
+    -1px 1px 6px hsl(0 0% 30% / 0.25) inset,
+    0px 1px 4px rgba(0,0,0,0.1); 
+}
+
+.cover {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: white;
+  border-radius: 100px;
+  transition: opacity var(--transition) var(--ease);
+}
+
+.wrapper {
+  position: absolute;
+  inset: 0;
+  border-radius: 100px;
+  clip-path: inset(0 0 0 0 round 100px);
+  filter: blur(4px);
+  transition: filter var(--transition) var(--ease);
+}
+
+.liquids {
+  position: absolute;
+  inset: 0;
+  transform: translate3d(0, 0, 0);
+  border-radius: 100px;
+  overflow: visible;
+  filter: url(#goo);
+}
+
+.liquid_shadow {
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0px 0px 3px 4px var(--checked),
+    inset calc(((var(--complete) / 100) * 8px) + -4px) 0px 3px 4px var(--checked);
+  border-radius: 100px;
+  transition: box-shadow calc(var(--transition) * 0.5) ease-out;
+}
+
+.liquid_track {
+  content: '';
+  height: calc((var(--height) * 1px) - (0 * var(--border)));
+  width: calc((var(--width) * 1px) - (0 * var(--border)));
+  background: var(--checked);
+  border-radius: 100px;
+  position: absolute;
+  top: 50%;
+  left: 0;
+  transition-property: height, width, filter, left;
+  transition-duration: var(--transition);
+  transition-timing-function: var(--ease);
+  translate: calc((var(--complete) / 100) * (100cqw - 100% - (6 * var(--border)))) -50%;
+}
+
+.liquidToggle[data-active='true'] .mask {
+  height: calc((100% - (2 * var(--border))) * 1.45);
+  width: calc((60% - (2 * var(--border))) * 1.45);
+  margin-left: calc((60% - (2 * var(--border))) * -0.225);
+}
+
+.liquidToggle[data-active='true'] .indicatorLiquid {
+  scale: 1.55 1.15; 
+}
+
+.liquidToggle[data-active='true'] .wrapper {
+  filter: blur(0px);
+}
+
+.liquidToggle[data-active='true'] .shadow {
+  opacity: 1;
+}
+
+.liquidToggle[data-active='true'] .cover {
+  opacity: 0;
+}
+
+.liquidToggle[data-active='true'] .liquid_track {
+  left: calc(var(--border) * 3);
+  height: calc((var(--height) * 1px) - (6 * var(--border)));
+}
+
+.srOnly {
+  position: absolute;
+  width: 0;
+  height: 0;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+  pointer-events: none;
+}

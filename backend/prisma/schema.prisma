@@ -1,0 +1,644 @@
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["fullTextSearch", "driverAdapters"] 
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// --- ENUMS ---
+
+enum VoteType {
+  LIKE
+  DISLIKE
+}
+
+enum VerificationCodeType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
+enum RequestStatus {
+  PENDING
+  REJECTED
+}
+
+enum ConversationRole {
+  ADMIN
+  MEMBER
+  MODERATOR 
+}
+
+enum MessageType {
+  REGULAR
+  SYSTEM
+}
+
+enum ConversationType {
+  DIRECT  
+  GROUP   
+  CHANNEL 
+}
+
+// --- MODELS ---
+
+model VibeComment {
+  id        Int      @id @default(autoincrement())
+  content   String
+  createdAt DateTime @default(now())
+  notifications Notification[] @relation("NotificationToVibeComment")
+  vibeId    Int
+  vibe      Vibe     @relation(fields: [vibeId], references: [id], onDelete: Cascade)
+
+  authorId  Int
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([vibeId])
+}
+
+model Vibe {
+  id          Int      @id @default(autoincrement())
+  createdAt   DateTime @default(now())
+  commentsCount Int      @default(0)
+  videoUrl    String
+  description String?
+  hashtags    String[]
+  isPrivate   Boolean  @default(false)
+  comments VibeComment[]
+  viewsCount  Int      @default(0)
+  likesCount  Int      @default(0)
+  repostsCount Int @default(0) 
+  posts        Post[]          
+  authorId    Int
+  author      User     @relation("UserVibes", fields: [authorId], references: [id], onDelete: Cascade)
+  notifications Notification[] @relation("NotificationToVibe")
+  likes       VibeLike[]
+
+  @@index([authorId])
+  @@index([isPrivate])
+}
+
+model VibeLike {
+  vibeId    Int
+  userId    Int
+  createdAt DateTime @default(now())
+
+  vibe      Vibe @relation(fields: [vibeId], references: [id], onDelete: Cascade)
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([vibeId, userId])
+}
+
+model NotificationSettings {
+  id                     Int       @id @default(autoincrement())
+  userId                 Int       @unique
+  user                   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  muteAllUntil           DateTime?
+
+  notifyOnLikes          Boolean   @default(true)
+  notifyOnComments       Boolean   @default(true)
+  notifyOnReposts        Boolean   @default(true)
+  notifyOnMessages       Boolean   @default(true)
+  notifyOnFriendRequests Boolean   @default(true)
+
+  notificationSound      String    @default("default")
+}
+
+model User {
+  id               Int      @id @default(autoincrement())
+  email            String   @unique
+  username         String   @unique
+  name             String?
+  password         String
+  isOnline         Boolean  @default(false)
+  lastOnlineAt     DateTime?
+  isAdmin          Boolean  @default(false)
+  isVerified       Boolean  @default(false)
+  vibes            Vibe[]         @relation("UserVibes")
+  vibeLikes        VibeLike[]
+  notificationSettings NotificationSettings?
+  verificationCodes    VerificationCode[]
+  vibeComments     VibeComment[]
+  
+  posts            Post[]
+  postLikes        PostLike[]
+  comments         Comment[]
+  commentVotes     CommentVote[]
+  reposts          Post[] @relation("UserReposts")
+  likedTracks      TrackLike[]
+  playlists        Playlist[]
+  listeningHistory ListeningHistory[]
+  
+  notifications    Notification[] @relation("UserNotifications")
+  sentNotifications Notification[] @relation("NotificationInitiator")
+
+  conversations    ConversationParticipant[]
+  sentMessages     Message[]                 @relation("SentMessages")
+  readMessages     MessageReadStatus[]       @relation("ReadMessages")
+  messageReactions MessageReaction[] 
+  forwardedMessages Message[] @relation("ForwardedMessages")
+  deletedMessages  DeletedMessageForUser[]
+  
+  ownedConversations Conversation[] @relation("ConversationOwner")
+  createdInvites     InviteLink[]   @relation("InviteCreator")
+
+  createdAt        DateTime @default(now())
+  bio              String?
+  location         String?
+  gender           String?
+  website          String? 
+  avatar           String?
+  banner           String?
+
+  sentRequests     FriendRequest[] @relation("Sender")
+  receivedRequests FriendRequest[] @relation("Receiver")
+  friendships      Friendship[]    @relation("UserFriendships")
+  friendOf         Friendship[]    @relation("FriendOfUser")
+  followedBy       User[]          @relation("UserFollows")
+  following        User[]          @relation("UserFollows")
+  
+  blockedUsers     Block[] @relation("Blocker")
+  blockedBy        Block[] @relation("Blocked")
+
+  pollVotes        PollVote[]
+  myTags           UserTag[]
+  sessions         Session[]
+}
+
+model Block {
+  id        Int      @id @default(autoincrement())
+  blockerId Int
+  blockedId Int
+  createdAt DateTime @default(now())
+
+  blocker   User     @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked   User     @relation("Blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedId])
+}
+
+model Session {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token      String   @unique
+  
+  userAgent  String?
+  ip         String?
+  device     String? 
+  os         String?
+  browser    String?
+  city       String?
+  country    String?
+  
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  lastActive DateTime @default(now())
+  expiresAt  DateTime?
+}
+
+model VerificationCode {
+  id         Int                 @id @default(autoincrement())
+  code       String              @unique
+  type       VerificationCodeType
+  expiresAt  DateTime
+  createdAt  DateTime            @default(now())
+
+  userId     Int
+  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// --- ОБНОВЛЕННЫЕ МУЗЫКАЛЬНЫЕ МОДЕЛИ ---
+
+model Artist {
+  id        Int      @id @default(autoincrement())
+  name      String
+  bio       String?
+  avatar    String?
+  createdAt DateTime @default(now())
+  
+  albums    Album[]
+  tracks    Track[]  @relation("MainArtist")
+  featuredIn Track[] @relation("FeaturedArtists")
+}
+
+model Album {
+  id          Int      @id @default(autoincrement())
+  title       String
+  coverUrl    String?
+  genre       String?
+  releaseDate DateTime?
+  year        Int?
+  createdAt   DateTime @default(now())
+  
+  artistId    Int
+  artist      Artist   @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  tracks      Track[]
+}
+
+model Track {
+  id               Int      @id @default(autoincrement())
+  title            String
+  url              String   
+  duration         Int      
+  coverUrl         String?
+  genre            String?
+  releaseDate      DateTime?
+  createdAt        DateTime @default(now())
+  
+  artistId         Int
+  artist           Artist   @relation("MainArtist", fields: [artistId], references: [id], onDelete: Cascade)
+  
+  featuredArtists  Artist[] @relation("FeaturedArtists")
+  
+  albumId          Int?
+  album            Album?   @relation(fields: [albumId], references: [id], onDelete: SetNull)
+
+  likedBy          TrackLike[]
+  playlists        PlaylistTrack[]
+  listeningHistory ListeningHistory[]
+}
+
+model TrackLike {
+  trackId   Int
+  userId    Int
+  createdAt DateTime @default(now())
+
+  track     Track @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  user      User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([trackId, userId])
+}
+
+model Playlist {
+  id        Int      @id @default(autoincrement())
+  title     String
+  coverUrl  String?
+  ownerId   Int
+  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  isPrivate Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  tracks    PlaylistTrack[]
+}
+
+model PlaylistTrack {
+  playlistId Int
+  trackId    Int
+  addedAt    DateTime @default(now())
+
+  playlist   Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  track      Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@id([playlistId, trackId])
+}
+
+model ListeningHistory {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  trackId   Int
+  playedAt  DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  track     Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+}
+
+// --- СОЦИАЛЬНАЯ ЛЕНТА (POSTS) ---
+
+model Post {
+  id               Int      @id @default(autoincrement())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  content          String?
+  images           String[]
+  commentsDisabled Boolean  @default(false)
+
+  isPinned         Boolean  @default(false)
+  isPublished      Boolean  @default(true)
+  scheduledAt      DateTime?
+
+  authorId         Int
+  author           User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  vibeId   Int?                
+  vibe     Vibe?    @relation(fields: [vibeId], references: [id], onDelete: SetNull)
+  likesCount       Int      @default(0)
+  repostsCount     Int      @default(0)
+  commentsCount    Int      @default(0)
+
+  likes            PostLike[]
+  comments         Comment[]
+
+  originalPostId   Int?
+  originalPost     Post?   @relation("OriginalPost", fields: [originalPostId], references: [id])
+  reposts          Post[]  @relation("OriginalPost")
+
+  repostedById     Int?
+  repostedBy       User?   @relation("UserReposts", fields: [repostedById], references: [id])
+
+  notifications    Notification[] @relation("NotificationToPost")
+  poll             Poll?
+
+  @@index([authorId])
+  @@index([isPublished])
+}
+
+model PostLike {
+  postId    Int
+  userId    Int
+  createdAt DateTime @default(now())
+  
+  post      Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([postId, userId])
+}
+
+model Comment {
+  id        Int      @id @default(autoincrement())
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  postId    Int
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  authorId  Int
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  parentId  Int?
+  parent    Comment? @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   Comment[] @relation("CommentReplies")
+
+  likesCount    Int @default(0)
+  dislikesCount Int @default(0)
+  score         Int @default(0)
+
+  votes     CommentVote[]
+  notifications Notification[] @relation("NotificationToComment")
+}
+
+model CommentVote {
+  commentId Int
+  userId    Int
+  type      VoteType
+  
+  comment   Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([commentId, userId])
+}
+
+model Poll {
+  id                 Int      @id @default(autoincrement())
+  question           String
+  endDate            DateTime
+  isAnonymous        Boolean  @default(false)
+  allowMultipleVotes Boolean  @default(false)
+  allowRevote        Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  
+  postId             Int      @unique
+  post               Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  options            PollOption[]
+  votes              PollVote[]
+}
+
+model PollOption {
+  id        Int      @id @default(autoincrement())
+  text      String
+  pollId    Int
+  poll      Poll     @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  votes     PollVote[]
+}
+
+model PollVote {
+  pollOptionId Int
+  userId       Int
+  pollId       Int
+  poll         Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  pollOption   PollOption @relation(fields: [pollOptionId], references: [id], onDelete: Cascade)
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([pollOptionId, userId])
+}
+
+// --- МЕССЕНДЖЕР И КАНАЛЫ ---
+
+model Conversation {
+  id           Int                     @id @default(autoincrement())
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+  
+  isGroup      Boolean                 @default(false) 
+  type         ConversationType        @default(DIRECT)
+
+  title        String?
+  avatar       String?
+  description  String?                 
+  slug         String?   @unique       
+  ownerId      Int?                    
+  
+  owner        User?     @relation("ConversationOwner", fields: [ownerId], references: [id])
+  
+  messages     Message[]
+  participants ConversationParticipant[]
+  inviteLinks  InviteLink[]
+
+  @@index([slug])
+}
+
+model InviteLink {
+  id             Int          @id @default(autoincrement())
+  code           String       @unique
+  conversationId Int
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  creatorId      Int
+  creator        User         @relation("InviteCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  
+  createdAt      DateTime     @default(now())
+  expiresAt      DateTime?    
+  usageLimit     Int?         
+  usedCount      Int          @default(0)
+}
+
+model ConversationParticipant {
+  conversationId Int
+  userId         Int
+  
+  isPinned       Boolean          @default(false)
+  isArchived     Boolean          @default(false)
+  isHidden       Boolean          @default(false) 
+  isManuallyUnread Boolean        @default(false)
+  mutedUntil     DateTime?
+  pinOrder       Int?             @default(0)
+  lastReadAt     DateTime?            
+  clearedHistoryAt DateTime?      
+
+  role           ConversationRole @default(MEMBER)
+  permissions    Json?            
+  
+  isKicked       Boolean          @default(false)
+  kickedAt       DateTime?
+  banned         Boolean          @default(false) 
+  bannedUntil    DateTime?        
+
+  conversation   Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([conversationId, userId])
+}
+
+model Message {
+  id             Int          @id @default(autoincrement())
+  conversationId Int
+  senderId       Int
+  
+  content        String
+  images         Json?        
+  type           MessageType  @default(REGULAR)
+  
+  isPinned       Boolean      @default(false)
+  isAnonymous    Boolean      @default(false) 
+  viewsCount     Int          @default(0)     
+  scheduledAt    DateTime?    
+
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  editedAt       DateTime?
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User         @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  
+  forwardedFromId Int?
+  forwardedFrom   User?       @relation("ForwardedMessages", fields: [forwardedFromId], references: [id], onDelete: SetNull)
+  
+  replyToId      Int?
+  replyTo        Message?     @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies        Message[]    @relation("MessageReplies")
+  
+  reactions      MessageReaction[]
+  readBy         MessageReadStatus[]
+  deletedFor     DeletedMessageForUser[] 
+
+  @@index([conversationId, createdAt])
+}
+
+model MessageReadStatus {
+  messageId Int
+  userId    Int
+  readAt    DateTime @default(now())
+
+  message   Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User    @relation("ReadMessages", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([messageId, userId])
+}
+
+model MessageReaction {
+  id        Int      @id @default(autoincrement())
+  emoji     String
+  createdAt DateTime @default(now())
+
+  messageId Int
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
+}
+
+model DeletedMessageForUser {
+  userId    Int
+  messageId Int
+
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message   Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@id([userId, messageId])
+}
+
+// --- ДРУЗЬЯ И ОТНОШЕНИЯ ---
+
+model FriendRequest {
+  id         Int           @id @default(autoincrement())
+  senderId   Int
+  receiverId Int
+  status     RequestStatus @default(PENDING)
+  createdAt  DateTime      @default(now())
+
+  sender     User          @relation("Sender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver   User          @relation("Receiver", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@unique([senderId, receiverId])
+}
+
+model Friendship {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  friendId  Int
+  score     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  user      User     @relation("UserFriendships", fields: [userId], references: [id], onDelete: Cascade)
+  friend    User     @relation("FriendOfUser", fields: [friendId], references: [id], onDelete: Cascade)
+
+  tags      FriendshipTag[]
+
+  @@unique([userId, friendId])
+  @@index([userId, score(sort: Desc)])
+}
+
+model UserTag {
+  id      Int    @id @default(autoincrement())
+  userId  Int
+  label   String
+  
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  links   FriendshipTag[]
+
+  @@unique([userId, label])
+}
+
+model FriendshipTag {
+  friendshipId Int
+  tagId        Int
+
+  friendship   Friendship @relation(fields: [friendshipId], references: [id], onDelete: Cascade)
+  tag          UserTag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([friendshipId, tagId])
+}
+
+// --- УВЕДОМЛЕНИЯ ---
+
+model Notification {
+  id          Int      @id @default(autoincrement())
+  createdAt   DateTime @default(now())
+  vibeId      Int?
+  vibe        Vibe?        @relation("NotificationToVibe", fields: [vibeId], references: [id], onDelete: Cascade)
+  vibeCommentId Int?
+  vibeComment VibeComment? @relation("NotificationToVibeComment", fields: [vibeCommentId], references: [id], onDelete: Cascade)
+  userId      Int
+  user        User     @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  
+  initiatorId Int?
+  initiator   User?    @relation("NotificationInitiator", fields: [initiatorId], references: [id], onDelete: Cascade)
+
+  type        String
+  message     String
+  isRead      Boolean  @default(false)
+  imageUrl    String?
+
+  postId      Int?
+  post        Post?    @relation("NotificationToPost", fields: [postId], references: [id], onDelete: Cascade)
+  commentId   Int?
+  comment     Comment? @relation("NotificationToComment", fields: [commentId], references: [id], onDelete: Cascade)
+  conversationId Int?
+
+  @@index([userId])
+}

@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package auth;
+
+// Echo Philosophy: Auth is strictly establishing a frequency connection.
+service AuthService {
+  rpc ValidateSignal (ValidateSignalRequest) returns (ValidateSignalResponse);
+}
+
+message ValidateSignalRequest {
+  string token = 1;
+}
+
+message ValidateSignalResponse {
+  bool isValid = 1;
+  string userId = 2;
+}
