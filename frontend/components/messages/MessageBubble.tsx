@@ -33,7 +33,6 @@ import EmojiExplosion from '../EmojiExplosion';
 import Tooltip from '../Tooltip'; 
 import Link from 'next/link';
 import { formatViewsCount } from '@/lib/format-number';
-import { LIQUID_GLASS_NOISE_B64 } from '@/lib/constants';
 
 const TOGGLE_REACTION = gql`
   mutation ToggleReaction($messageId: Int!, $emoji: String!) {
@@ -169,7 +168,8 @@ interface MessageBubbleProps {
   onReactionToggled?: (messageId: number) => void;
   onImageClick: (index: number) => void;
   isChannel?: boolean;
-  channelTitle?: string; // <--- НОВЫЙ ПРОП
+  isFavorites?: boolean;
+  channelTitle?: string;
 }
 
 export default function MessageBubble({ 
@@ -195,7 +195,8 @@ export default function MessageBubble({
     onImageClick,
     onReactionToggled,
     isChannel = false,
-    channelTitle = "Канал" // <--- ТИТУЛ ПО УМОЛЧАНИЮ
+    isFavorites = false,
+    channelTitle = "Канал"
 }: MessageBubbleProps) {
   const { isNextSame } = grouping;
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -315,34 +316,16 @@ export default function MessageBubble({
   const uniqueEmojis = [...new Set(message.reactions?.map(r => r.emoji) || [])];
   const hasReactions = uniqueEmojis.length > 0;
 
-  const roundedClass = isMe 
-      ? `rounded-l-3xl rounded-tr-3xl ${!isNextSame ? 'rounded-br-md' : 'rounded-br-3xl'}`
-      : `rounded-r-3xl rounded-tl-3xl ${!isNextSame ? 'rounded-bl-md' : 'rounded-bl-3xl'}`;
-
-  // --- ЛОГИКА ЦВЕТОВ ---
-  const glassBaseBg = isMe
-    ? (isDarkMode ? 'rgba(37, 99, 235, 0.5)' : 'rgba(187, 247, 208, 0.75)') 
-    : (isDarkMode ? 'rgba(39, 39, 42, 0.6)' : 'rgba(255, 255, 255, 0.85)');
-
-  const textColorClass = isMe
-    ? (isDarkMode ? 'text-white' : 'text-black')
-    : (isDarkMode ? 'text-zinc-100' : 'text-zinc-900');
-
-  const liquidGlassStyle: React.CSSProperties = {
-    position: 'relative',
-    backgroundColor: glassBaseBg,
-    backdropFilter: 'blur(20px) saturate(180%)',
-    WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-    border: `1px solid ${isDarkMode ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.06)'}`,
-    boxShadow: isDarkMode 
-        ? '0 12px 40px -8px rgba(0,0,0,0.6), inset 0 1px 1px rgba(255,255,255,0.1)' 
-        : '0 12px 40px -8px rgba(0,0,0,0.08), inset 0 1px 1px rgba(255,255,255,0.4)',
-    overflow: 'hidden'
-  };
-
-  const highlightClass = isHighlighted 
-      ? 'ring-4 ring-rose-400/50' 
-      : ''; 
+  // Новый дизайн: плоские скруглённые прямоугольники, без liquid glass
+  const bubbleBaseClass = `relative px-5 py-3 max-w-full rounded-2xl transition-all ${
+    isMe
+      ? isDarkMode
+        ? 'bg-blue-600 text-white'
+        : 'bg-blue-500 text-white'
+      : isDarkMode
+        ? 'bg-zinc-800 text-zinc-100'
+        : 'bg-zinc-100 text-zinc-900'
+  } ${isHighlighted ? 'ring-2 ring-lime-400' : ''} shadow-md`;
 
   const renderTextWithEmojis = (text: string) => {
     if (!text) return null;
@@ -475,264 +458,154 @@ export default function MessageBubble({
     </div>
   );
 
-const BubbleContent = (
+  const BubbleContent = (
     <div className="relative">
-        {/* Иконка закрепа вынесена из блока с overflow: hidden */}
-        {message.isPinned && (
-            <div className="absolute -top-2 -right-2 bg-lime-400 text-black p-1.5 rounded-full shadow-md z-30">
-                <Pin size={12} className="fill-current" />
-            </div>
+      {message.isPinned && (
+        <div className="absolute -top-2 -right-2 bg-lime-400 text-black p-1.5 rounded-full shadow-md z-30">
+          <Pin size={12} className="fill-current" />
+        </div>
+      )}
+
+      <div className={bubbleBaseClass}>
+        {isChannel && (
+          <div className="mb-1 text-xs font-bold opacity-70 tracking-wide">
+            {channelTitle}
+          </div>
         )}
 
-        <div 
-            style={liquidGlassStyle}
-            className={`relative ${roundedClass} ${highlightClass} min-w-16 max-w-full flex flex-col`}
-        >
-            {/* Текстура шума */}
-            <div 
-                className="absolute inset-0 pointer-events-none opacity-[0.05] mix-blend-overlay"
-                style={{ backgroundImage: `url(${LIQUID_GLASS_NOISE_B64})`, backgroundSize: '100px 100px' }}
-            />
+        {message.forwardedFrom && (
+          <div className="mb-2">
+            <Link 
+              href={`/dashboard/user/${message.forwardedFrom.id}`} 
+              onClick={(e) => e.stopPropagation()} 
+              className={`text-sm font-bold flex items-center gap-2 hover:underline cursor-pointer ${
+                isMe ? 'text-white/90' : 'text-lime-600 dark:text-lime-400'
+              }`}
+            >
+              <CornerUpRight size={14} />
+              <span>Переслано от {message.forwardedFrom.name || message.forwardedFrom.username}</span>
+            </Link>
+          </div>
+        )}
 
-            {/* ШАПКА КАНАЛА */}
+        {message.replyTo && (
+          <div 
+            onClick={(e) => { e.stopPropagation(); onReplyClick(message.replyTo!.id); }} 
+            className={`mb-2 p-2 rounded-lg border-l-4 cursor-pointer select-none transition-colors ${
+              isMe 
+                ? 'bg-black/20 border-white/40 hover:bg-black/30' 
+                : (isDarkMode ? 'bg-black/30 border-lime-400 hover:bg-black/40' : 'bg-white/50 border-lime-500 hover:bg-white/70')
+            }`}
+          >
+            <span className={`text-xs font-bold block mb-1 ${isMe ? 'text-white/90' : 'text-lime-600 dark:text-lime-400'}`}>
+              {message.replyTo.sender.username}
+            </span>
+            <p className="text-sm opacity-80 truncate">{renderTextWithEmojis(message.replyTo.content)}</p>
+          </div>
+        )}
+
+        {message.images && message.images.length > 0 && (
+          <div className="mb-3 flex flex-wrap gap-2">
+            {message.images.map((imgUrl, idx) => (
+              <img
+                key={idx}
+                src={getImageUrl(imgUrl)}
+                alt="attachment"
+                className="max-h-60 rounded-lg object-cover cursor-pointer hover:opacity-90 transition-opacity border border-white/10"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onImageClick(idx);
+                }}
+              />
+            ))}
+          </div>
+        )}
+
+        {message.content.trim().length > 0 && (
+          <p className="whitespace-pre-wrap break-all text-base leading-relaxed">
+            {renderTextWithEmojis(message.content)}
+          </p>
+        )}
+
+        <div className={`mt-2 flex items-center justify-end gap-3 text-xs ${isMe ? 'text-white/70' : 'text-zinc-500'}`}>
+          <div className="flex items-center gap-2">
+            {isEdited && (
+              <span className="italic flex items-center gap-1" title="Изменено">
+                <Pencil size={12} /> изм.
+              </span>
+            )}
+
             {isChannel && (
-                <div className={`px-5 pt-4 -mb-1 relative z-10 text-[13px] font-black uppercase tracking-widest opacity-60 ${textColorClass}`}>
-                    {channelTitle}
-                </div>
-            )}
-
-            {message.forwardedFrom && (
-                <div className="mb-1 ml-5 mt-4 mr-5 relative z-10">
-                    <Link 
-                        href={`/dashboard/user/${message.forwardedFrom.id}`} 
-                        onClick={(e) => e.stopPropagation()} 
-                        className={`text-[14px] font-bold flex items-center gap-2 hover:underline cursor-pointer
-                            ${isMe ? (isDarkMode ? 'text-white/90' : 'text-black/80') : 'text-lime-600 dark:text-lime-400'}
-                        `}
-                    >
-                        <CornerUpRight size={14} />
-                        <span>Переслано от {message.forwardedFrom.name || message.forwardedFrom.username}</span>
-                    </Link>
-                </div>
-            )}
-
-            {message.replyTo && (
-                <div 
-                    onClick={(e) => { e.stopPropagation(); onReplyClick(message.replyTo!.id); }} 
-                    className={`w-full py-3 pl-4 pr-5 border-l-4 ${isMe ? 'border-white/40' : 'border-lime-400'} relative z-10 overflow-hidden cursor-pointer select-none flex flex-col justify-center transition-opacity active:opacity-70 rounded-t-xl ${isMe ? 'bg-black/20' : (isDarkMode ? 'bg-black/30' : 'bg-zinc-100/50')}`}
-                >
-                    <div className="pl-1 flex flex-col">
-                        <span className={`text-[14px] font-bold truncate mb-1 ${isMe ? (isDarkMode ? 'text-white/90' : 'text-black/90') : 'text-lime-600 dark:text-lime-400'}`}>{message.replyTo.sender.username}</span>
-                        <p className={`text-[14px] truncate wrap-break-words opacity-80 ${isMe ? (isDarkMode ? 'text-white/80' : 'text-black/80') : (isDarkMode ? 'text-zinc-200' : 'text-zinc-600')}`}>{renderTextWithEmojis(message.replyTo.content)}</p>
-                    </div>
-                </div>
-            )}
-            
-            <div className={`px-6 pb-4 relative z-10 ${message.replyTo || isChannel ? 'pt-3' : 'pt-5'}`}>
-               {message.images && message.images.length > 0 && (
-                <div className="mb-4 flex flex-wrap gap-3">
-                  {message.images.map((imgUrl, idx) => (
-                    <img
-                      key={idx}
-                      src={getImageUrl(imgUrl)}
-                      alt="attachment"
-                      className="max-h-96 rounded-[24px] object-cover border border-white/10 cursor-pointer hover:opacity-90 transition-opacity shadow-xl"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onImageClick(idx);
-                      }}
-                    />
-                  ))}
-                </div>
-              )}
-
-                {message.content.trim().length > 0 && (
-                  <p className={`whitespace-pre-wrap break-all text-[16px] leading-[1.5] relative z-10 ${textColorClass}`}>
-                    {renderTextWithEmojis(message.content)}
-                  </p>
-                )}
-
-                <div
-                  className={`mt-3 flex items-center ${
-                    hasReactions ? 'justify-between' : 'justify-end'
-                  } gap-4 select-none`}
-                >
-                  {hasReactions && (
-                    <div className="flex flex-wrap items-center gap-2">
-                      {uniqueEmojis.map((emoji) => {
-                        const reactionsForEmoji = message.reactions.filter(r => r.emoji === emoji);
-                        const count = reactionsForEmoji.length;
-                        const lastReactingUser = reactionsForEmoji[reactionsForEmoji.length - 1]?.user;
-                        const isMyReaction = reactionsForEmoji.some(r => r.userId === myId);
-                        const hex = toHex(emoji);
-
-                        return (
-                          <button
-                            key={emoji}
-                            onClick={(e) => { e.stopPropagation(); handleReactionClick(emoji); }}
-                            className={`flex items-center gap-2.5 px-3 py-1.5 rounded-full shadow-lg border transition-all hover:scale-110 cursor-pointer
-                              ${isMyReaction
-                                ? (isDarkMode ? 'bg-lime-400 border-lime-500 text-black' : 'bg-lime-500 border-lime-600 text-white')
-                                : (isDarkMode ? 'bg-zinc-800 border-zinc-600 text-white' : 'bg-white border-zinc-200 text-zinc-900')
-                              }`}
-                            disabled={isMessagingDisabled}
-                          >
-                            {lastReactingUser && (
-                              <Avatar
-                                url={lastReactingUser.avatar}
-                                username={lastReactingUser.username}
-                                name={lastReactingUser.name}
-                                size="sm"
-                                className="w-5 h-5 text-[10px]"
-                              />
-                            )}
-
-                            {hex ? (
-                              <img
-                                src={`${APPLE_EMOJI_BASE_URL}${hex}.png`}
-                                alt={emoji}
-                                className="w-5 h-5 object-contain pointer-events-none select-none"
-                              />
-                            ) : (
-                              <span className="text-sm">{emoji}</span>
-                            )}
-
-                            {count > 1 && (
-                              <span className={`font-black text-[12px] ${isMyReaction ? (isDarkMode ? 'text-black' : 'text-white') : 'text-zinc-400'}`}>
-                                {count}
-                              </span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  <div className={`flex items-center gap-2 ${textColorClass} opacity-90`}>
-                    {isEdited && (
-                      <span className="text-[12px] italic flex items-center mr-1" title="Изменено">
-                        <Pencil size={12} className="mr-1" /> изм.
-                      </span>
-                    )}
-                    
-                    {isFailed ? (
-                      <div className="relative" ref={errorMenuRef}>
-                        <Tooltip content="Сообщение не доставлено" position="left">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setIsErrorMenuOpen(!isErrorMenuOpen); }}
-                            className="bg-white rounded-full p-0.5 text-red-500 hover:scale-110 transition-transform shadow-sm cursor-pointer"
-                          >
-                            <ShieldAlert size={18} className="fill-current" />
-                          </button>
-                        </Tooltip>
-                        <AnimatePresence>
-                          {isErrorMenuOpen && (
-                            <motion.div
-                              initial={{ opacity: 0, scale: 0.9 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              exit={{ opacity: 0, scale: 0.9 }}
-                              transition={{ duration: 0.1 }}
-                              className={`absolute z-50 w-32 rounded-xl shadow-2xl border overflow-hidden
-                                ${isMe ? 'right-0' : 'left-0'} bottom-full mb-2 origin-bottom
-                                ${isDarkMode ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-zinc-200'}
-                              `}
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <button
-                                onClick={() => { setIsErrorMenuOpen(false); onRetry(message); }}
-                                className={`${menuButtonClass} cursor-pointer`}
-                              >
-                                <RotateCcw size={14} /> Повторить
-                              </button>
-                              <button
-                                onClick={() => { setIsErrorMenuOpen(false); onDeleteLocal(message.id); }}
-                                className={`w-full text-left px-4 py-3 text-sm font-bold transition-colors text-red-500 cursor-pointer ${isDarkMode ? 'hover:bg-red-500/10' : 'hover:bg-red-50'}`}
-                              >
-                                <Trash2 size={14} /> Удалить
-                              </button>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        {isChannel && (
-                            <div className={`flex items-center gap-1.5 font-black text-[14px] px-2.5 py-1 rounded-full ${isMe ? 'bg-black/15' : 'bg-black/5'}`}>
-                                <Eye size={17} strokeWidth={3} />
-                                <span>{formatViewsCount(message.viewsCount ?? 0)}</span>
-                            </div>
-                        )}
-
-                        <span className="text-[14px] font-black tracking-tight">
-                          {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                        
-                        {!isChannel && isMe && !isSending && (
-                          <div className="scale-125">
-                            {message.isRead ? <CheckCheck size={16} strokeWidth={3} /> : <Check size={16} strokeWidth={3} />}
-                          </div>
-                        )}
-
-                        {isSending && <Clock size={15} className="animate-pulse" />}
-                      </div>
-                    )}
-                  </div>
-                </div>
-            </div>
-
-            {playReactionAnimation && message.reactions.length > 0 && (
-              <EmojiExplosion emoji={message.reactions[message.reactions.length - 1].emoji} />
-            )}
-
-            {localReactionEmoji && (
-              <div className="absolute inset-0 pointer-events-none">
-                <EmojiExplosion emoji={localReactionEmoji} />
+              <div className="flex items-center gap-1 font-medium">
+                <Eye size={14} />
+                <span>{formatViewsCount(message.viewsCount ?? 0)}</span>
               </div>
             )}
+
+            <span>
+              {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </span>
+
+            {/* Галочки только для личных сообщений (не канал, не избранное) */}
+            {!isChannel && !isFavorites && isMe && !isSending && (
+              <div className="scale-125">
+                {message.isRead ? <CheckCheck size={16} strokeWidth={2} /> : <Check size={16} strokeWidth={2} />}
+              </div>
+            )}
+
+            {isSending && <Clock size={14} className="animate-pulse" />}
+          </div>
         </div>
+      </div>
+
+      {playReactionAnimation && message.reactions.length > 0 && (
+        <EmojiExplosion emoji={message.reactions[message.reactions.length - 1].emoji} />
+      )}
+      {localReactionEmoji && (
+        <div className="absolute inset-0 pointer-events-none">
+          <EmojiExplosion emoji={localReactionEmoji} />
+        </div>
+      )}
     </div>
   );
 
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`w-full flex ${isMe ? 'justify-end' : 'justify-start'} ${hasReactions ? 'mb-10' : 'mb-4'}`}>
-        <div className={`flex flex-col max-w-[75%] sm:max-w-[70%] xl:max-w-[60%] ${isMe ? 'items-end' : 'items-start'}`}>
-            <div className={`group/bubble relative flex items-center gap-4 max-w-full ${isMe ? 'flex-row' : 'flex-row-reverse'}`}>
-    {isMe ? (<>{ActionButtons}{BubbleContent}</>) : (<>{ActionButtons}{BubbleContent}</>)}
-</div>
-            
-            {!isChannel && isLastReadMessage && isMe && (message.readBy?.length ?? 0) > 0 && (
-              <>
-                <div
-                  ref={readTriggerRef}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => {
-                    if (message.readBy?.length && readTriggerRef.current) {
-                      setReadByPanelAnchor(readTriggerRef.current.getBoundingClientRect());
-                      setShowReadByPanel(true);
-                    }
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && message.readBy?.length && readTriggerRef.current) {
-                      setReadByPanelAnchor(readTriggerRef.current.getBoundingClientRect());
-                      setShowReadByPanel(true);
-                    }
-                  }}
-                  className={`text-right text-[12px] font-black mt-2 mr-2 px-3 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800 transition-colors ${message.readBy?.length ? 'cursor-pointer hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-500 hover:text-zinc-400' : 'cursor-default text-zinc-500'}`}
-                >
-                  Просмотрено
-                </div>
-                {showReadByPanel && message.readBy?.length && (
-                  <ReadByPanel
-                    message={message}
-                    isDarkMode={isDarkMode}
-                    onClose={() => { setShowReadByPanel(false); setReadByPanelAnchor(null); }}
-                    anchorRect={readByPanelAnchor}
-                  />
-                )}
-              </>
-            )}
+      <div className={`flex flex-col max-w-[75%] sm:max-w-[70%] xl:max-w-[60%] ${isMe ? 'items-end' : 'items-start'}`}>
+        <div className={`group/bubble relative flex items-center gap-4 max-w-full ${isMe ? 'flex-row' : 'flex-row-reverse'}`}>
+          {ActionButtons}
+          {BubbleContent}
         </div>
+
+        {!isChannel && isLastReadMessage && isMe && (message.readBy?.length ?? 0) > 0 && (
+          <>
+            <div
+              ref={readTriggerRef}
+              role="button"
+              tabIndex={0}
+              onClick={() => {
+                if (message.readBy?.length && readTriggerRef.current) {
+                  setReadByPanelAnchor(readTriggerRef.current.getBoundingClientRect());
+                  setShowReadByPanel(true);
+                }
+              }}
+              className={`text-xs font-medium mt-1 px-3 py-1 rounded-full transition-colors cursor-pointer ${
+                isDarkMode ? 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+              }`}
+            >
+              Просмотрено
+            </div>
+            {showReadByPanel && message.readBy?.length && (
+              <ReadByPanel
+                message={message}
+                isDarkMode={isDarkMode}
+                onClose={() => { setShowReadByPanel(false); setReadByPanelAnchor(null); }}
+                anchorRect={readByPanelAnchor}
+              />
+            )}
+          </>
+        )}
+      </div>
     </motion.div>
   );
 }

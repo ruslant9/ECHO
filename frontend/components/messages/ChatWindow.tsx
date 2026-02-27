@@ -144,7 +144,8 @@ export default function ChatWindow({
   const canPost = !isChannel || (activeConversation?.myRole === 'ADMIN' || (activeConversation?.permissions?.canPost));
   const participant = activeConversation?.participant as any;
   const hasLeftConversation = !!(activeConversation as any)?.hasLeft;
-  // ----------------------------------------------
+
+  const isFavorites = !activeConversation?.isGroup && activeConversation?.participantsCount === 1;
 
   useEffect(() => {
     viewedIdsInSession.current.clear();
@@ -350,6 +351,12 @@ export default function ChatWindow({
     if (!lastUnreadIsInView || !lastUnreadMessageId) return;
     setUnreadBannerHideAt((prev) => (prev == null ? Date.now() + 5000 : prev));
   }, [lastUnreadIsInView, lastUnreadMessageId]);
+
+  useEffect(() => {
+  if (isFavorites && activeConversation && activeConversation.id !== 0) {
+    markRead({ variables: { conversationId: activeConversation.id } }).catch(() => {});
+  }
+}, [isFavorites, activeConversation?.id, markRead]);
 
   useEffect(() => {
     const hideAt = unreadBannerHideAt;
@@ -847,35 +854,37 @@ export default function ChatWindow({
             onUnpin={(id) => handlePinMessage(id)}
         />
         <ChatHeader
-          participant={activeConversation!.participant}
-          conversation={activeConversation}
-          typingUsers={typingUsersSet}
-          typingDisplay={typingDisplay}
-          isDarkMode={isDarkMode}
-          onBack={onBack}
-          onDeleteForAll={() => handleDeleteConversationRequest('ALL')}
-          onDeleteForMe={() => handleDeleteConversationRequest('ME')}
-          onBlockUser={handleBlockUserRequest}
-          onOpenStats={() => setIsStatsOpen(true)}
-          onOpenEditor={() => setIsGroupEditorOpen(true)}
-          onLeaveConversation={() => handleLeaveConversation()}
-          onJumpToDate={handleJumpToDate}
-
-         onShowParticipants={
-            (isChannel || activeConversation?.isGroup)
-              ? () => {
-                  if (hasLeftConversation && !isChannel) { 
-                    setToast({ message: 'Список участников недоступен. Вы вышли из беседы.', type: 'error' });
-                  } else if (isChannel && activeConversation?.myRole !== 'ADMIN') {
-                    setToast({ message: 'Только администраторы могут просматривать участников канала', type: 'error' });
-                  } else {
-                    setIsGroupEditorOpen(true);
-                  }
-                }
-              : undefined
+  participant={activeConversation!.participant}
+  conversation={activeConversation}
+  typingUsers={typingUsersSet}
+  typingDisplay={typingDisplay}
+  isDarkMode={isDarkMode}
+  onBack={onBack}
+  onDeleteForAll={() => handleDeleteConversationRequest('ALL')}
+  onDeleteForMe={() => handleDeleteConversationRequest('ME')}
+  onBlockUser={handleBlockUserRequest}
+  onOpenStats={() => setIsStatsOpen(true)}
+  onOpenEditor={() => setIsGroupEditorOpen(true)}
+  onLeaveConversation={() => handleLeaveConversation()}
+  onJumpToDate={handleJumpToDate}
+  onShowParticipants={
+    (isChannel || activeConversation?.isGroup)
+      ? () => {
+          if (hasLeftConversation && !isChannel) { 
+            setToast({ message: 'Список участников недоступен. Вы вышли из беседы.', type: 'error' });
+          } else if (isChannel && activeConversation?.myRole !== 'ADMIN') {
+            setToast({ message: 'Только администраторы могут просматривать участников канала', type: 'error' });
+          } else {
+            setIsGroupEditorOpen(true);
           }
-          myId={myId}
-        />
+        }
+      : undefined
+  }
+  myId={myId}
+  // 👇 новые пропсы
+  messages={messages}
+  onJumpToMessage={handleScrollToMessage}
+/>
         <MessageList
           messages={messages}
           myId={myId}
@@ -902,6 +911,7 @@ export default function ChatWindow({
           messagesLoading={messagesLoading}
           onImageClick={handleImageClick}
           isChannel={isChannel}
+          isFavorites={isFavorites}
         />
         {editingMessage && (
           <div className={`px-4 py-2 text-xs flex items-center justify-between border-t ${isDarkMode ? 'bg-zinc-800 border-zinc-700 text-zinc-300' : 'bg-zinc-50 border-zinc-200 text-zinc-600'}`}>

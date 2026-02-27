@@ -2,7 +2,10 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Loader, Search, Users, Image as ImageIcon, Megaphone, Globe, Lock, ArrowRight, Plus } from 'lucide-react';
+import {
+  X, Loader, Search, Users, Image as ImageIcon, Megaphone, Globe, Lock,
+  ArrowRight, Plus, MessageCircle
+} from 'lucide-react';
 import { gql, useQuery, useMutation } from '@apollo/client';
 import { useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
@@ -10,6 +13,7 @@ import Avatar from './Avatar';
 import { useTheme } from '@/context/ThemeContext';
 import { useDebounce } from '@/hooks/use-debounce';
 import { formatTimeAgo } from '@/lib/time-ago';
+import { LIQUID_GLASS_NOISE_B64 } from '@/lib/constants';
 
 const SEARCH_USERS = gql`
     query SearchUsers($query: String!) {
@@ -192,8 +196,8 @@ export default function MessageUserModal({ isOpen, onClose, currentUserId }: Mes
 
   const searchResults: UserToMessage[] = data?.searchUsers || [];
 
-  const tabs: { id: Mode; label: string; icon?: any }[] = [
-    { id: 'direct', label: 'Личное' },
+  const tabs: { id: Mode; label: string; icon: any }[] = [
+    { id: 'direct', label: 'Личное', icon: MessageCircle },
     { id: 'group', label: 'Беседа', icon: Users },
     { id: 'channel', label: 'Канал', icon: Megaphone }
   ];
@@ -205,280 +209,329 @@ export default function MessageUserModal({ isOpen, onClose, currentUserId }: Mes
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
-        className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+        className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50"
       >
         <motion.div
           initial={{ scale: 0.95, opacity: 0, y: 10 }}
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.95, opacity: 0, y: 10 }}
           onClick={(e) => e.stopPropagation()}
-          className={`w-full max-w-lg rounded-[28px] overflow-hidden shadow-2xl flex flex-col max-h-[85vh] border backdrop-blur-2xl
-             ${isDarkMode ? 'bg-zinc-900/90 border-white/10 text-zinc-100 shadow-[0_0_40px_rgba(0,0,0,0.5)]' : 'bg-white/90 border-zinc-200 text-zinc-900 shadow-[0_20px_40px_rgba(0,0,0,0.1)]'}`}
+          className={`
+            relative w-full max-w-2xl rounded-[28px] overflow-hidden shadow-2xl flex flex-col max-h-[85vh] border
+            ${isDarkMode 
+              ? 'bg-zinc-900/30 text-zinc-100 border-white/10' 
+              : 'bg-white/30 text-zinc-900 border-zinc-200/50'
+            }
+            backdrop-blur-2xl
+          `}
+          style={{ transform: 'translateZ(0)' }}
         >
-          {/* HEADER */}
-          <div className={`px-6 py-5 flex items-center justify-between shrink-0 border-b ${isDarkMode ? 'border-white/10' : 'border-zinc-200'}`}>
-            <h2 className="text-xl font-bold tracking-tight">Новое сообщение</h2>
+          {/* Текстурный шум */}
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              backgroundImage: `url(${LIQUID_GLASS_NOISE_B64})`,
+              backgroundRepeat: 'repeat',
+              backgroundSize: '200px 200px',
+              opacity: 0.08,
+              mixBlendMode: 'overlay',
+              borderRadius: 'inherit',
+            }}
+          />
+
+          {/* Шапка */}
+          <div className={`relative px-6 py-5 flex items-center justify-between shrink-0 border-b z-10 ${isDarkMode ? 'border-white/10' : 'border-zinc-200'}`}>
+            <h2 className="text-xl font-bold tracking-tight">Создать</h2>
             <button onClick={onClose} className={`p-2 rounded-full transition-colors cursor-pointer ${isDarkMode ? 'hover:bg-white/10 text-zinc-400 hover:text-white' : 'hover:bg-zinc-100 text-zinc-500 hover:text-black'}`}>
               <X size={20} />
             </button>
           </div>
 
-          {/* TABS */}
-          <div className="px-6 py-4 shrink-0">
-            <div className={`flex items-center p-1.5 rounded-2xl relative border ${isDarkMode ? 'bg-zinc-800/50 border-white/5' : 'bg-zinc-100 border-zinc-200/50'}`}>
+          {/* Две колонки */}
+          <div className="relative flex flex-1 overflow-hidden z-10">
+            {/* Вертикальные табы */}
+            <div className={`w-[130px] shrink-0 p-4 border-r ${isDarkMode ? 'border-white/10' : 'border-zinc-200'}`}>
+              <div className="flex flex-col gap-2">
                 {tabs.map((tab) => {
-                    const isActive = mode === tab.id;
-                    return (
-                        <button 
-                            key={tab.id}
-                            onClick={() => setMode(tab.id)}
-                            className={`relative flex-1 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 cursor-pointer transition-colors z-10 
-                                ${isActive 
-                                    ? (isDarkMode ? 'text-white' : 'text-zinc-900') 
-                                    : (isDarkMode ? 'text-zinc-400 hover:text-zinc-300' : 'text-zinc-500 hover:text-zinc-700')}`}
-                        >
-                            {isActive && (
-                                <motion.div 
-                                    layoutId="modal-tab-blob" 
-                                    className={`absolute inset-0 rounded-xl -z-10 shadow-sm border
-                                        ${isDarkMode ? 'bg-zinc-700 border-zinc-600' : 'bg-white border-zinc-200'}`} 
-                                    transition={{ type: "spring", stiffness: 400, damping: 30 }} 
-                                />
-                            )}
-                            {tab.icon && <tab.icon size={16} />}
-                            {tab.label}
-                        </button>
-                    )
+                  const isActive = mode === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setMode(tab.id)}
+                      className={`
+                        relative flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all cursor-pointer
+                        ${isActive 
+                          ? 'bg-green-500 text-white shadow-md'  // активная зелёная
+                          : `text-zinc-400 hover:bg-black/5 dark:hover:bg-white/5`  // неактивные серые, при наведении лёгкий фон
+                        }
+                      `}
+                    >
+                      <tab.icon size={16} />
+                      {tab.label}
+                    </button>
+                  );
                 })}
+              </div>
             </div>
-          </div>
 
-          <div className="flex-1 overflow-y-auto px-6 pb-6 custom-scrollbar">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={mode}
-                initial={{ opacity: 0, x: 10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -10 }}
-                transition={{ duration: 0.2 }}
-                className="space-y-5"
-              >
-                {/* === ФОРМА ДЛЯ КАНАЛА === */}
-                {mode === 'channel' && (
-                  <>
-                    <div className="flex gap-4 items-start">
-                        {/* ИСПРАВЛЕНО: Убран backdrop-blur-sm, добавлено isolation для Webkit */}
+            {/* Контентная область */}
+            <div className="flex-1 overflow-y-auto px-6 py-4 custom-scrollbar">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={mode}
+                  initial={{ opacity: 0, x: 10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="space-y-5"
+                >
+                  {/* Канал */}
+                  {mode === 'channel' && (
+                    <>
+                      <div className="flex gap-4 items-start">
                         <div className="relative shrink-0 group isolate">
-                            <div className={`w-16 h-16 rounded-full flex items-center justify-center border overflow-hidden relative cursor-pointer transition-colors
-                                ${isDarkMode ? 'border-zinc-700 bg-zinc-800 hover:border-zinc-500' : 'border-zinc-300 bg-zinc-100 hover:border-zinc-400'}`}
-                                onClick={() => fileInputRef.current?.click()}
-                                style={{ transform: 'translateZ(0)' }} // Исправляет рендеринг закругления в Safari/Chrome
+                          <div
+                            className={`w-16 h-16 rounded-full flex items-center justify-center border overflow-hidden relative cursor-pointer transition-colors
+                              ${isDarkMode ? 'border-zinc-700 bg-zinc-800 hover:border-zinc-500' : 'border-zinc-300 bg-zinc-100 hover:border-zinc-400'}`}
+                            onClick={() => fileInputRef.current?.click()}
+                            style={{ transform: 'translateZ(0)' }}
+                          >
+                            {avatarPreview ? (
+                              <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" />
+                            ) : (
+                              <ImageIcon size={24} className={isDarkMode ? 'text-zinc-500' : 'text-zinc-400'} />
+                            )}
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <Plus size={20} className="text-white" />
+                            </div>
+                          </div>
+                          <input ref={fileInputRef} type="file" accept="image/*" onChange={handleAvatarSelect} className="hidden" />
+                          {avatarPreview && (
+                            <button
+                              onClick={() => { setAvatarFile(null); setAvatarPreview(null); }}
+                              className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1 shadow-md cursor-pointer hover:scale-110 transition-transform z-10"
                             >
-                                {avatarPreview ? (
-                                    <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" />
-                                ) : (
-                                    <ImageIcon size={24} className={isDarkMode ? "text-zinc-500" : "text-zinc-400"} />
-                                )}
-                                {/* Убран backdrop-blur-sm */}
-                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                    <Plus size={20} className="text-white" />
-                                </div>
+                              <X size={12} />
+                            </button>
+                          )}
+                        </div>
+                        <div className="flex-1 space-y-3">
+                          <input
+                            value={title}
+                            onChange={e => setTitle(e.target.value)}
+                            placeholder="Название канала"
+                            className={`w-full px-4 py-3 rounded-xl outline-none text-sm font-medium border transition-colors cursor-text
+                              ${isDarkMode ? 'bg-zinc-800/50 border-zinc-700 text-white' : 'bg-zinc-100 border-zinc-200 text-zinc-900'}`}
+                          />
+                          <textarea
+                            value={description}
+                            onChange={e => setDescription(e.target.value)}
+                            placeholder="Описание (необязательно)"
+                            rows={2}
+                            className={`w-full px-4 py-3 rounded-xl outline-none text-sm resize-none border transition-colors cursor-text
+                              ${isDarkMode ? 'bg-zinc-800/50 border-zinc-700 text-white' : 'bg-zinc-100 border-zinc-200 text-zinc-900'}`}
+                          />
+                        </div>
+                      </div>
+
+                      <div className={`p-4 rounded-2xl border ${isDarkMode ? 'bg-zinc-800/30 border-zinc-700' : 'bg-zinc-50 border-zinc-200'}`}>
+                        <div className={`flex gap-2 mb-3 p-1 rounded-xl ${isDarkMode ? 'bg-zinc-900/50' : 'bg-zinc-200/50'}`}>
+                          <button
+                            onClick={() => setIsPublicChannel(true)}
+                            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer ${isPublicChannel ? 'bg-green-500 text-white shadow-sm' : (isDarkMode ? 'text-zinc-400 hover:text-white' : 'text-zinc-500 hover:text-zinc-900')}`}
+                          >
+                            <Globe size={14} /> Публичный
+                          </button>
+                          <button
+                            onClick={() => setIsPublicChannel(false)}
+                            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer ${!isPublicChannel ? 'bg-green-500 text-white shadow-sm' : (isDarkMode ? 'text-zinc-400 hover:text-white' : 'text-zinc-500 hover:text-zinc-900')}`}
+                          >
+                            <Lock size={14} /> Частный
+                          </button>
+                        </div>
+                        {isPublicChannel ? (
+                          <div className="space-y-1">
+                            <label className="text-xs text-zinc-500 ml-1 font-semibold uppercase tracking-wider">Ссылка</label>
+                            <div className={`flex items-center px-4 py-3 rounded-xl border transition-colors cursor-text
+                              ${isDarkMode ? 'bg-zinc-900/50 border-zinc-700' : 'bg-white border-zinc-300'}`}>
+                              <span className="text-zinc-400 mr-1 font-bold">@</span>
+                              <input
+                                value={slug}
+                                onChange={e => setSlug(e.target.value.replace(/\s+/g, ''))}
+                                placeholder="channel_link"
+                                className="bg-transparent w-full outline-none text-sm font-medium"
+                              />
+                            </div>
+                            <p className="text-[10px] text-zinc-500 ml-1">Можно будет найти через поиск</p>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-zinc-500 text-center py-4 font-medium">Доступ только по пригласительной ссылке</p>
+                        )}
+                      </div>
+                    </>
+                  )}
+
+                  {/* Группа или ЛС */}
+                  {mode !== 'channel' && (
+                    <>
+                      {mode === 'group' && (
+                        <div className="flex gap-4 items-center mb-4">
+                          <div className="relative shrink-0 group isolate">
+                            <div
+                              className={`w-14 h-14 rounded-full flex items-center justify-center border overflow-hidden relative cursor-pointer transition-colors
+                                ${isDarkMode ? 'border-zinc-700 bg-zinc-800 hover:border-zinc-500' : 'border-zinc-300 bg-zinc-100 hover:border-zinc-400'}`}
+                              onClick={() => fileInputRef.current?.click()}
+                              style={{ transform: 'translateZ(0)' }}
+                            >
+                              {avatarPreview ? (
+                                <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" />
+                              ) : (
+                                <ImageIcon size={20} className={isDarkMode ? 'text-zinc-500' : 'text-zinc-400'} />
+                              )}
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <Plus size={16} className="text-white" />
+                              </div>
                             </div>
                             <input ref={fileInputRef} type="file" accept="image/*" onChange={handleAvatarSelect} className="hidden" />
                             {avatarPreview && (
-                                <button onClick={() => {setAvatarFile(null); setAvatarPreview(null);}} className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1 shadow-md cursor-pointer hover:scale-110 transition-transform z-10"><X size={12} /></button>
+                              <button
+                                onClick={() => { setAvatarFile(null); setAvatarPreview(null); }}
+                                className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1 shadow-md cursor-pointer hover:scale-110 transition-transform z-10"
+                              >
+                                <X size={10} />
+                              </button>
                             )}
+                          </div>
+                          <input
+                            value={title}
+                            onChange={e => setTitle(e.target.value)}
+                            placeholder="Название беседы"
+                            className={`flex-1 px-4 py-3 rounded-xl outline-none text-sm font-medium border transition-colors cursor-text
+                              ${isDarkMode ? 'bg-zinc-800/50 border-zinc-700 text-white' : 'bg-zinc-100 border-zinc-200 text-zinc-900'}`}
+                          />
                         </div>
-                        <div className="flex-1 space-y-3">
-                            <input 
-                                value={title} 
-                                onChange={e => setTitle(e.target.value)} 
-                                placeholder="Название канала"
-                                className={`w-full px-4 py-3 rounded-xl outline-none text-sm font-medium border transition-colors cursor-text
-                                    ${isDarkMode ? 'bg-zinc-800/50 border-zinc-700 focus:border-lime-400 text-white' : 'bg-zinc-100 border-zinc-200 focus:border-lime-500 text-zinc-900'}`}
-                            />
-                            <textarea 
-                                value={description}
-                                onChange={e => setDescription(e.target.value)}
-                                placeholder="Описание (необязательно)"
-                                rows={2}
-                                className={`w-full px-4 py-3 rounded-xl outline-none text-sm resize-none border transition-colors cursor-text
-                                    ${isDarkMode ? 'bg-zinc-800/50 border-zinc-700 focus:border-lime-400 text-white' : 'bg-zinc-100 border-zinc-200 focus:border-lime-500 text-zinc-900'}`}
-                            />
-                        </div>
-                    </div>
+                      )}
 
-                    <div className={`p-4 rounded-2xl border ${isDarkMode ? 'bg-zinc-800/30 border-zinc-700' : 'bg-zinc-50 border-zinc-200'}`}>
-                        <div className={`flex gap-2 mb-3 p-1 rounded-xl ${isDarkMode ? 'bg-zinc-900/50' : 'bg-zinc-200/50'}`}>
-                            <button onClick={() => setIsPublicChannel(true)} className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer ${isPublicChannel ? 'bg-lime-400 text-black shadow-sm' : (isDarkMode ? 'text-zinc-400 hover:text-white' : 'text-zinc-500 hover:text-zinc-900')}`}>
-                                <Globe size={14} /> Публичный
-                            </button>
-                            <button onClick={() => setIsPublicChannel(false)} className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer ${!isPublicChannel ? 'bg-lime-400 text-black shadow-sm' : (isDarkMode ? 'text-zinc-400 hover:text-white' : 'text-zinc-500 hover:text-zinc-900')}`}>
-                                <Lock size={14} /> Частный
-                            </button>
-                        </div>
-                        {isPublicChannel ? (
-                            <div className="space-y-1">
-                                <label className="text-xs text-zinc-500 ml-1 font-semibold uppercase tracking-wider">Ссылка</label>
-                                <div className={`flex items-center px-4 py-3 rounded-xl border transition-colors cursor-text
-                                    ${isDarkMode ? 'bg-zinc-900/50 border-zinc-700 focus-within:border-lime-400' : 'bg-white border-zinc-300 focus-within:border-lime-500'}`}>
-                                    <span className="text-zinc-400 mr-1 font-bold">@</span>
-                                    <input 
-                                        value={slug}
-                                        onChange={e => setSlug(e.target.value.replace(/\s+/g, ''))}
-                                        placeholder="channel_link"
-                                        className="bg-transparent w-full outline-none text-sm font-medium"
-                                    />
-                                </div>
-                                <p className="text-[10px] text-zinc-500 ml-1">Можно будет найти через поиск</p>
-                            </div>
-                        ) : (
-                            <p className="text-xs text-zinc-500 text-center py-4 font-medium">Доступ только по пригласительной ссылке</p>
-                        )}
-                    </div>
-                  </>
-                )}
-
-                {/* === ФОРМА ДЛЯ ГРУППЫ ИЛИ ЛС === */}
-                {mode !== 'channel' && (
-                  <>
-                    {mode === 'group' && (
-                        <div className="flex gap-4 items-center mb-4">
-                             {/* ИСПРАВЛЕНО: Убран backdrop-blur-sm, добавлено isolation для Webkit */}
-                             <div className="relative shrink-0 group isolate">
-                                <div className={`w-14 h-14 rounded-full flex items-center justify-center border overflow-hidden relative cursor-pointer transition-colors
-                                    ${isDarkMode ? 'border-zinc-700 bg-zinc-800 hover:border-zinc-500' : 'border-zinc-300 bg-zinc-100 hover:border-zinc-400'}`}
-                                    onClick={() => fileInputRef.current?.click()}
-                                    style={{ transform: 'translateZ(0)' }} // Исправляет рендеринг закругления
-                                >
-                                    {avatarPreview ? <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" /> : <ImageIcon size={20} className={isDarkMode ? "text-zinc-500" : "text-zinc-400"} />}
-                                    {/* Убран backdrop-blur-sm */}
-                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                        <Plus size={16} className="text-white" />
-                                    </div>
-                                </div>
-                                <input ref={fileInputRef} type="file" accept="image/*" onChange={handleAvatarSelect} className="hidden" />
-                                {avatarPreview && (
-                                    <button onClick={() => {setAvatarFile(null); setAvatarPreview(null);}} className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1 shadow-md cursor-pointer hover:scale-110 transition-transform z-10"><X size={10} /></button>
-                                )}
-                            </div>
-                            <input 
-                                value={title} 
-                                onChange={e => setTitle(e.target.value)} 
-                                placeholder="Название беседы"
-                                className={`flex-1 px-4 py-3 rounded-xl outline-none text-sm font-medium border transition-colors cursor-text
-                                    ${isDarkMode ? 'bg-zinc-800/50 border-zinc-700 focus:border-lime-400 text-white' : 'bg-zinc-100 border-zinc-200 focus:border-lime-500 text-zinc-900'}`}
-                            />
-                        </div>
-                    )}
-
-                    <div className="relative flex items-center mb-4">
+                      <div className="relative flex items-center mb-4">
                         <Search size={18} className="absolute left-4 text-zinc-400" />
                         <input
-                            type="text"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="Поиск людей..."
-                            className={`w-full pl-11 pr-4 py-3.5 rounded-xl outline-none text-sm font-medium border transition-colors cursor-text
-                                ${isDarkMode ? 'bg-zinc-800/50 border-zinc-700 focus:border-lime-400 placeholder:text-zinc-500 text-white' : 'bg-zinc-100 border-zinc-200 focus:border-lime-500 placeholder:text-zinc-400 text-zinc-900'}`}
+                          type="text"
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          placeholder="Поиск людей..."
+                          className={`w-full pl-11 pr-4 py-3.5 rounded-xl outline-none text-sm font-medium border transition-colors cursor-text
+                            ${isDarkMode ? 'bg-zinc-800/50 border-zinc-700 placeholder:text-zinc-500 text-white' : 'bg-zinc-100 border-zinc-200 placeholder:text-zinc-400 text-zinc-900'}`}
                         />
-                    </div>
+                      </div>
 
-                    <div className="space-y-1">
-                        {/* Selected Users Chips for Group */}
+                      <div className="space-y-1">
+                        {/* Выбранные пользователи для группы */}
                         {mode === 'group' && selectedIds.size > 0 && (
-                            <div className={`flex flex-wrap gap-2 mb-4 p-3 rounded-xl border ${isDarkMode ? 'bg-zinc-800/30 border-zinc-700' : 'bg-zinc-50 border-zinc-200'}`}>
-                                <span className="w-full text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1">Участники ({selectedIds.size})</span>
-                                <AnimatePresence>
-                                    {Array.from(selectedIds).map(id => {
-                                        const u = selectedUsers[id];
-                                        if (!u) return null;
-                                        return (
-                                            <motion.button 
-                                                key={id} 
-                                                initial={{ scale: 0.8, opacity: 0 }}
-                                                animate={{ scale: 1, opacity: 1 }}
-                                                exit={{ scale: 0.8, opacity: 0 }}
-                                                onClick={() => handleUserSelect(u)} 
-                                                className={`flex items-center gap-1.5 pl-1.5 pr-2.5 py-1 rounded-full text-xs font-medium cursor-pointer transition-colors border
-                                                    ${isDarkMode ? 'bg-zinc-900 border-zinc-700 hover:border-red-900/50 hover:text-red-400' : 'bg-white border-zinc-200 hover:border-red-200 hover:text-red-500'}`}
-                                            >
-                                                <Avatar username={u.username} name={u.name} url={u.avatar} size="sm" className="w-5 h-5" />
-                                                <span>{u.name || u.username}</span>
-                                                <X size={12} className="opacity-50" />
-                                            </motion.button>
-                                        )
-                                    })}
-                                </AnimatePresence>
-                            </div>
+                          <div className={`flex flex-wrap gap-2 mb-4 p-3 rounded-xl border ${isDarkMode ? 'bg-zinc-800/30 border-zinc-700' : 'bg-zinc-50 border-zinc-200'}`}>
+                            <span className="w-full text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1">Участники ({selectedIds.size})</span>
+                            <AnimatePresence>
+                              {Array.from(selectedIds).map(id => {
+                                const u = selectedUsers[id];
+                                if (!u) return null;
+                                return (
+                                  <motion.button
+                                    key={id}
+                                    initial={{ scale: 0.8, opacity: 0 }}
+                                    animate={{ scale: 1, opacity: 1 }}
+                                    exit={{ scale: 0.8, opacity: 0 }}
+                                    onClick={() => handleUserSelect(u)}
+                                    className={`flex items-center gap-1.5 pl-1.5 pr-2.5 py-1 rounded-full text-xs font-medium cursor-pointer transition-colors border
+                                      ${isDarkMode ? 'bg-zinc-900 border-zinc-700 hover:border-red-900/50 hover:text-red-400' : 'bg-white border-zinc-200 hover:border-red-200 hover:text-red-500'}`}
+                                  >
+                                    <Avatar username={u.username} name={u.name} url={u.avatar} size="sm" className="w-5 h-5" />
+                                    <span>{u.name || u.username}</span>
+                                    <X size={12} className="opacity-50" />
+                                  </motion.button>
+                                );
+                              })}
+                            </AnimatePresence>
+                          </div>
                         )}
 
-                        {/* Search Results */}
+                        {/* Результаты поиска */}
                         {debouncedSearchQuery.length < 2 ? (
-                            <div className="text-center py-10 opacity-50 text-xs font-medium">Введите имя для поиска</div>
+                          <div className="text-center py-10 opacity-50 text-xs font-medium">Введите имя для поиска</div>
                         ) : loading ? (
-                            <div className="flex justify-center py-10"><Loader className="animate-spin text-lime-400" /></div>
+                          <div className="flex justify-center py-10"><Loader className="animate-spin text-green-500" /></div>
                         ) : searchResults.length === 0 ? (
-                            <div className="text-center py-10 opacity-50 text-xs font-medium">Пользователи не найдены</div>
+                          <div className="text-center py-10 opacity-50 text-xs font-medium">Пользователи не найдены</div>
                         ) : (
-                            <div className="space-y-1">
-                                {searchResults.map(user => {
-                                    const isSelected = mode === 'group' && selectedIds.has(user.id);
-                                    return (
-                                        <button
-                                            key={user.id}
-                                            onClick={() => handleUserSelect(user)}
-                                            className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all text-left cursor-pointer border border-transparent
-                                                ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-black/5'}
-                                                ${isSelected ? (isDarkMode ? 'bg-lime-400/10 border-lime-400/30' : 'bg-lime-400/20 border-lime-400/50') : ''}`}
-                                        >
-                                            <Avatar username={user.username} name={user.name} url={user.avatar} size="md" />
-                                            <div className="flex-1 min-w-0">
-                                                <div className="font-bold text-sm truncate">{user.name || user.username}</div>
-                                                <div className={`text-xs truncate mt-0.5 ${user.isOnline ? 'text-lime-500 font-medium' : 'text-zinc-500'}`}>
-                                                    {user.isOnline ? 'Онлайн' : user.lastOnlineAt ? formatTimeAgo(user.lastOnlineAt) : 'Не в сети'}
-                                                </div>
-                                            </div>
-                                            {isSelected && (
-                                                <div className="w-5 h-5 rounded-full bg-lime-400 text-black flex items-center justify-center mr-2 shadow-sm">
-                                                    <X size={12} strokeWidth={3} />
-                                                </div>
-                                            )}
-                                        </button>
-                                    )
-                                })}
-                            </div>
+                          <div className="space-y-1">
+                            {searchResults.map(user => {
+                              const isSelected = mode === 'group' && selectedIds.has(user.id);
+                              return (
+                                <button
+                                  key={user.id}
+                                  onClick={() => handleUserSelect(user)}
+                                  className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all text-left cursor-pointer border border-transparent
+                                    ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-black/5'}
+                                    ${isSelected ? (isDarkMode ? 'bg-green-500/10 border-green-500/30' : 'bg-green-500/20 border-green-500/50') : ''}`}
+                                >
+                                  <Avatar username={user.username} name={user.name} url={user.avatar} size="md" />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="font-bold text-sm truncate">{user.name || user.username}</div>
+                                    <div className={`text-xs truncate mt-0.5 ${user.isOnline ? 'text-green-500 font-medium' : 'text-zinc-500'}`}>
+                                      {user.isOnline ? 'Онлайн' : user.lastOnlineAt ? formatTimeAgo(user.lastOnlineAt) : 'Не в сети'}
+                                    </div>
+                                  </div>
+                                  {isSelected && (
+                                    <div className="w-5 h-5 rounded-full bg-green-500 text-white flex items-center justify-center mr-2 shadow-sm">
+                                      <X size={12} strokeWidth={3} />
+                                    </div>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
                         )}
-                    </div>
-                  </>
-                )}
-              </motion.div>
-            </AnimatePresence>
+                      </div>
+                    </>
+                  )}
+                </motion.div>
+              </AnimatePresence>
+            </div>
           </div>
 
-          {/* FOOTER */}
-          <div className={`p-5 border-t flex items-center justify-between gap-4 shrink-0 ${isDarkMode ? 'border-white/10' : 'border-zinc-200'}`}>
-             <div className="text-xs font-medium text-zinc-500">
+          {/* Футер */}
+          <div className={`relative p-5 border-t flex items-center justify-between gap-4 shrink-0 z-10 ${isDarkMode ? 'border-white/10' : 'border-zinc-200'}`}>
+            {/* Левая часть: плашка только для group и channel, для direct оставляем пустой div для выравнивания */}
+            {mode !== 'direct' ? (
+              <div className={`
+                px-3 py-1.5 rounded-full text-xs font-medium
+                ${isDarkMode 
+                  ? 'bg-zinc-700 text-white' 
+                  : 'bg-white text-zinc-500'
+                }
+              `}>
                 {mode === 'group' && `Выбрано: ${selectedIds.size}`}
                 {mode === 'channel' && `Создание канала`}
-             </div>
-             
-             {mode !== 'direct' && (
-                 <button
-                    onClick={mode === 'group' ? handleCreateGroup : handleCreateChannel}
-                    disabled={uploadingAvatar || (mode === 'group' ? (selectedIds.size < 2 || !title) : !title)}
-                    className={`px-8 py-3 rounded-xl text-sm font-bold transition-all flex items-center gap-2 cursor-pointer
-                        ${uploadingAvatar || (mode === 'group' ? (selectedIds.size < 2 || !title) : !title)
-                            ? 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400 cursor-not-allowed shadow-none'
-                            : 'bg-lime-400 text-black hover:bg-lime-500 shadow-[0_0_15px_rgba(163,230,53,0.4)] active:scale-95'
-                        }
-                    `}
-                 >
-                    {uploadingAvatar ? <><Loader size={16} className="animate-spin"/> Загрузка...</> : <>Создать <ArrowRight size={16} /></>}
-                 </button>
-             )}
-          </div>
+              </div>
+            ) : (
+              <div /> // пустой div для сохранения места
+            )}
 
+            {/* Правая часть: кнопка создания (только для group и channel) */}
+            {mode !== 'direct' && (
+              <button
+                onClick={mode === 'group' ? handleCreateGroup : handleCreateChannel}
+                disabled={uploadingAvatar || (mode === 'group' ? (selectedIds.size < 2 || !title) : !title)}
+                className={`
+                  px-8 py-3 rounded-xl text-sm font-bold transition-all flex items-center gap-2 cursor-pointer
+                  ${uploadingAvatar || (mode === 'group' ? (selectedIds.size < 2 || !title) : !title)
+                    ? 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400 cursor-not-allowed shadow-none'
+                    : 'bg-green-500 text-white hover:bg-green-600 shadow-[0_0_15px_rgba(34,197,94,0.4)] active:scale-95'
+                  }
+                `}
+              >
+                {uploadingAvatar ? <><Loader size={16} className="animate-spin" /> Загрузка...</> : <>Создать <ArrowRight size={16} /></>}
+              </button>
+            )}
+          </div>
         </motion.div>
       </motion.div>
     </AnimatePresence>

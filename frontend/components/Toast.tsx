@@ -29,7 +29,7 @@ export default function Toast({ message, type, onClose }: ToastProps) {
         initial={{ y: -100, opacity: 0 }}
         animate={{ y: 20, opacity: 1 }}
         exit={{ y: -100, opacity: 0 }}
-        className={`fixed top-0 left-1/2 -translate-x-1/2 z-100 min-w-80 max-w-md p-4 rounded-xl shadow-lg text-white font-semibold flex items-center gap-4 backdrop-blur-sm border ${bgColor}`}
+        className={`fixed top-0 left-1/2 -translate-x-1/2 z-12200 min-w-80 max-w-md p-4 rounded-xl shadow-lg text-white font-semibold flex items-center gap-4 backdrop-blur-sm border ${bgColor}`}
       >
         {type === 'success' ? <CheckCircle size={20} /> : <AlertCircle size={20} />}
         

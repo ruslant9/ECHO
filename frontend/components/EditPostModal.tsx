@@ -60,17 +60,15 @@ export default function EditPostModal({ isOpen, onClose, onSuccess, post }: Edit
     if (isOpen) {
       setToast(null);
       if (post) {
-        // Заполняем данные заново при каждом открытии окна
         setContent(post.content || '');
         setImages(post.images || []);
         setCommentsDisabled(post.commentsDisabled || false);
       }
     } else {
-      // Очищаем стейт при закрытии (опционально, но помогает избежать мелькания старых данных)
       setTimeout(() => {
         setContent('');
         setImages([]);
-      }, 300); // 300ms - ждем завершения анимации закрытия
+      }, 300);
     }
   }, [isOpen, post]);
 
@@ -180,23 +178,22 @@ export default function EditPostModal({ isOpen, onClose, onSuccess, post }: Edit
       
       <LiquidGlassModal isOpen={isOpen} onClose={onClose} maxWidth="max-w-4xl">
         <div className="p-6 border-b border-white/20 dark:border-white/10 flex justify-between items-center bg-white/5 dark:bg-black/10 shrink-0">
-          <h2 className="font-bold text-xl tracking-tight">Редактировать публикацию</h2>
-          <button onClick={onClose} className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors cursor-pointer"><X size={20}/></button>
+          <h2 className="font-bold text-xl tracking-tight text-white">Редактировать публикацию</h2>
+          <button onClick={onClose} className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors cursor-pointer"><X size={20} className="text-white"/></button>
         </div>
 
-        <div className="flex flex-col md:flex-row max-h-[75vh]">
+        <div className="flex flex-col md:flex-row">
           
           <div className="flex flex-col md:w-2/3 p-6 gap-6 border-b md:border-b-0 md:border-r border-white/20 dark:border-white/10 bg-black/5">
               <div className="flex gap-4 relative">
-                  {/* Убрали focus-within:border-lime-400/50 и исправили синтаксис **: */}
-                  <div className="flex-1 bg-black/20 border border-white/10 rounded-2xl overflow-hidden transition-colors **:[contenteditable]:bg-transparent">
+                  <div className="flex-1 bg-black/20 border border-white/10 rounded-2xl overflow-hidden transition-colors">
                       <RichEmojiInput
                           ref={contentInputRef}
                           value={content}
                           onChange={setContent}
                           placeholder="Что у вас нового?"
                           isDarkMode={true}
-                          className="w-full text-lg min-h-[120px]"
+                          className="w-full text-lg min-h-[120px] text-white"
                           onKeyDown={handleKeyDown}
                       />
                   </div>
@@ -206,7 +203,7 @@ export default function EditPostModal({ isOpen, onClose, onSuccess, post }: Edit
                       onClick={() => togglePicker(emojiButtonRef, handleEmojiClick)}
                       className={`absolute right-3 top-3 h-10 w-10 flex items-center justify-center rounded-xl transition-all cursor-pointer backdrop-blur-md ${isPickerOpen ? 'bg-lime-400/20 text-lime-400 border border-lime-400/30' : 'bg-white/10 hover:bg-white/20 border border-transparent'}`}
                   >
-                      <Smile size={22} />
+                      <Smile size={22} className="text-white" />
                   </button>
               </div>
 
@@ -232,16 +229,16 @@ export default function EditPostModal({ isOpen, onClose, onSuccess, post }: Edit
                           onClick={() => fileInputRef.current?.click()}
                           className={`flex-1 flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-2xl transition-all cursor-pointer ${isDragging ? 'border-lime-400 bg-lime-400/10 scale-[1.02]' : 'border-white/20 hover:border-white/40 bg-black/20 shadow-inner'}`}
                       >
-                          <div className="p-4 bg-white/5 rounded-full mb-3 shadow-lg"><UploadCloud size={36} className={isDragging ? 'text-lime-400' : 'opacity-70'} /></div>
-                          <p className={`font-bold text-lg mb-1 ${isDragging ? 'text-lime-400' : ''}`}>Перетащите фото сюда</p>
-                          <p className="text-sm opacity-50 font-medium">или нажмите для выбора с устройства</p>
+                          <div className="p-4 bg-white/5 rounded-full mb-3 shadow-lg"><UploadCloud size={36} className={isDragging ? 'text-lime-400' : 'text-white/70'} /></div>
+                          <p className={`font-bold text-lg mb-1 ${isDragging ? 'text-lime-400' : 'text-white'}`}>Перетащите фото сюда</p>
+                          <p className="text-sm opacity-50 font-medium text-white">или нажмите для выбора с устройства</p>
                       </div>
                   )}
               </div>
           </div>
 
-          <div className="md:w-1/3 p-6 space-y-6 overflow-y-auto glass-scrollbar bg-black/10">
-              <h3 className="font-bold text-sm uppercase opacity-60 tracking-wider">Настройки публикации</h3>
+          <div className="md:w-1/3 p-6 space-y-6 overflow-y-auto glass-scrollbar bg-black/10" style={{ maxHeight: 'calc(90vh - 180px)' }}>
+              <h3 className="font-bold text-sm uppercase opacity-60 tracking-wider text-white">Настройки публикации</h3>
               
               <div className="p-2 bg-black/20 border border-white/10 rounded-2xl">
                 <ToggleSwitch
@@ -254,7 +251,7 @@ export default function EditPostModal({ isOpen, onClose, onSuccess, post }: Edit
 
               {post?.poll && (
                   <div className="bg-black/20 border border-white/10 p-4 rounded-2xl space-y-3">
-                      <p className="text-sm font-bold opacity-80 flex items-center gap-2">
+                      <p className="text-sm font-bold opacity-80 flex items-center gap-2 text-white">
                         <ListTodo size={16} /> Опрос
                       </p>
                       <button
@@ -276,10 +273,9 @@ export default function EditPostModal({ isOpen, onClose, onSuccess, post }: Edit
         </div>
 
         <div className="p-6 border-t border-white/20 dark:border-white/10 flex justify-end gap-4 bg-white/5 dark:bg-black/10 shrink-0">
-           <button onClick={onClose} className="px-6 py-3.5 rounded-2xl font-bold bg-white/10 hover:bg-white/20 border border-white/10 transition-all cursor-pointer">Отмена</button>
+           <button onClick={onClose} className="px-6 py-3.5 rounded-2xl font-bold bg-white/10 hover:bg-white/20 border border-white/10 transition-all text-white cursor-pointer">Отмена</button>
           <button 
                onClick={handleSubmit} 
-               // 👇 Изменение здесь: добавлено || !hasChanges
                disabled={loading || (!content.trim() && images.length === 0) || !hasChanges}
                className="px-8 py-3.5 bg-lime-400 hover:bg-lime-500 text-black rounded-2xl font-bold transition-all shadow-[0_0_20px_rgba(163,230,53,0.4)] cursor-pointer disabled:opacity-30 disabled:shadow-none flex items-center justify-center gap-2 min-w-[160px]"
            >

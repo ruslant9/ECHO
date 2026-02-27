@@ -22,7 +22,6 @@ export default function LiquidGlassModal({
   const [mounted, setMounted] = useState(false);
   const mouseDownTarget = useRef<EventTarget | null>(null);
   
-  // Создаем уникальный ID для SVG фильтра, чтобы избежать конфликтов
   const filterId = `lg-dist-${useId()}`;
 
   useEffect(() => setMounted(true), []);
@@ -61,26 +60,14 @@ export default function LiquidGlassModal({
             exit={{ scale: 0.95, opacity: 0, y: 10 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
             onClick={(e) => e.stopPropagation()}
-            className={`relative w-full ${maxWidth} rounded-3xl overflow-hidden shadow-2xl
-              isolate text-zinc-900 dark:text-zinc-100 ${className}`}
+            className={`relative w-full ${maxWidth} rounded-3xl shadow-2xl isolate overflow-hidden text-zinc-900 dark:text-zinc-100 ${className}`}
           >
-            {/* 
-              Слои для эффекта "жидкого стекла" 
-              Структура точно повторяет ваш пример для корректной работы
-            */}
-
-            {/* Слой 1: Фильтр искажения и размытия фона */}
+            {/* Слои эффекта жидкого стекла (без изменений) */}
             <div
-              className="absolute inset-0 z-0 backdrop-blur-xl" // backdrop-blur для "морозного" эффекта
-              style={{ filter: `url(#${filterId})` }} // SVG-фильтр для "жидкого" искажения
+              className="absolute inset-0 z-0 backdrop-blur-xl"
+              style={{ filter: `url(#${filterId})` }}
             />
-
-            {/* Слой 2: Цветная подложка */}
-            <div
-              className="absolute inset-0 z-10 bg-[rgba(255,255,255,0.05)] dark:bg-[rgba(255,255,255,0.05)]"
-            />
-
-            {/* Слой 3: Блики и внутренние тени по краям */}
+            <div className="absolute inset-0 z-10 bg-[rgba(255,255,255,0.05)] dark:bg-[rgba(255,255,255,0.05)]" />
             <div
               className="absolute inset-0 z-20 rounded-3xl pointer-events-none"
               style={{
@@ -89,32 +76,16 @@ export default function LiquidGlassModal({
               }}
             />
 
-            {/* Слой 4: Контент */}
+            {/* Контейнер с фиксированной высотой и flex-колонкой */}
             <div className="relative z-30 w-full max-h-[90vh] flex flex-col rounded-3xl overflow-hidden">
               {children}
             </div>
 
-            {/* 
-              Определение SVG-фильтра (скрыто, но необходимо)
-              Создает эффект "ряби" на воде или искажения в стекле.
-            */}
             <svg className="absolute w-0 h-0">
               <filter id={filterId}>
-                <feTurbulence
-                  type="fractalNoise"
-                  baseFrequency="0.01 0.01" // Размер "волн"
-                  numOctaves="2" // Детализация
-                  seed="5" // Случайный рисунок
-                  result="noise"
-                />
+                <feTurbulence type="fractalNoise" baseFrequency="0.01 0.01" numOctaves="2" seed="5" result="noise" />
                 <feGaussianBlur in="noise" stdDeviation="1.5" result="blurred" />
-                <feDisplacementMap
-                  in="SourceGraphic"
-                  in2="blurred"
-                  scale="50" // Сила искажения
-                  xChannelSelector="R"
-                  yChannelSelector="G"
-                />
+                <feDisplacementMap in="SourceGraphic" in2="blurred" scale="50" xChannelSelector="R" yChannelSelector="G" />
               </filter>
             </svg>
           </motion.div>

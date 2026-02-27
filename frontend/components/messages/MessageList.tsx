@@ -33,6 +33,7 @@ interface MessageListProps {
   messagesLoading?: boolean;
   onImageClick: (messageId: number, imageIndex: number) => void;
   isChannel?: boolean;
+  isFavorites?: boolean; // 👈 новый проп
 }
 
 const EMPTY_PHRASES = ["Сообщений нет — напишите первым!", "Здесь пока тихо... Нарушьте тишину!"];
@@ -73,6 +74,7 @@ export default function MessageList({
     messagesLoading = false,
     onImageClick,
     isChannel = false,
+    isFavorites = false, // 👈 принимаем проп
 }: MessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -223,6 +225,7 @@ export default function MessageList({
                 onReactionToggled={onReactionToggled}
                 onImageClick={(imgIdx: number) => onImageClick(msg.id, imgIdx)}
                 isChannel={isChannel}
+                isFavorites={isFavorites} // 👈 передаём проп
               />
             );
 

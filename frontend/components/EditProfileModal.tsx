@@ -259,8 +259,8 @@ export default function EditProfileModal({ isOpen, onClose, user, isDarkMode, on
 
       <LiquidGlassModal isOpen={isOpen} onClose={onClose} maxWidth="max-w-3xl">
         <div className="p-6 border-b border-white/20 dark:border-white/10 flex justify-between items-center bg-white/5 dark:bg-black/10 shrink-0">
-          <h2 className="font-bold text-xl tracking-tight">Редактировать профиль</h2>
-          <button onClick={onClose} className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors cursor-pointer"><X size={20} /></button>
+          <h2 className="font-bold text-xl tracking-tight text-white">Редактировать профиль</h2>
+          <button onClick={onClose} className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors cursor-pointer"><X size={20} className="text-white" /></button>
         </div>
 
         <div className="flex flex-col md:flex-row flex-1 overflow-y-auto glass-scrollbar">
@@ -274,42 +274,42 @@ export default function EditProfileModal({ isOpen, onClose, user, isDarkMode, on
                   </div>
 
                   <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity text-white backdrop-blur-sm">
-                  <div className="flex items-center gap-3"> {/* Было gap-6 */}
-  <Tooltip content="Загрузить фото" position="bottom">
-    <label className="cursor-pointer p-2 bg-white/20 hover:bg-white/30 border border-white/30 rounded-full transition-transform hover:scale-110 shadow-lg"> {/* Было p-3 */}
-        <Camera size={20} /> {/* Было size={28} */}
-        <input ref={fileInputRef} type="file" className="hidden" accept="image/*" onChange={handleAvatarChange} />
-    </label>
-  </Tooltip>
-  
-  {avatarPreview && (
-    <Tooltip content="Удалить аватар" position="bottom">
-      <button
-        type="button"
-        onClick={handleRemoveAvatar}
-        className="cursor-pointer p-2 bg-red-500/80 hover:bg-red-500 border border-red-400/50 rounded-full transition-transform hover:scale-110 shadow-lg"
-      >
-        <Trash2 size={20} /> {/* Было size={28} */}
-      </button>
-    </Tooltip>
-  )}
-</div>
+                  <div className="flex items-center gap-3">
+                    <Tooltip content="Загрузить фото" position="bottom">
+                      <label className="cursor-pointer p-2 bg-white/20 hover:bg-white/30 border border-white/30 rounded-full transition-transform hover:scale-110 shadow-lg">
+                          <Camera size={20} className="text-white" />
+                          <input ref={fileInputRef} type="file" className="hidden" accept="image/*" onChange={handleAvatarChange} />
+                      </label>
+                    </Tooltip>
+                    
+                    {avatarPreview && (
+                      <Tooltip content="Удалить аватар" position="bottom">
+                        <button
+                          type="button"
+                          onClick={handleRemoveAvatar}
+                          className="cursor-pointer p-2 bg-red-500/80 hover:bg-red-500 border border-red-400/50 rounded-full transition-transform hover:scale-110 shadow-lg"
+                        >
+                          <Trash2 size={20} className="text-white" />
+                        </button>
+                      </Tooltip>
+                    )}
+                  </div>
                   </div>
               </div>
             </div>
 
             <div className="w-full mb-4">
-              <label className="block text-xs font-bold uppercase mb-1.5 opacity-60">Имя</label>
-              <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ваше имя" className="w-full p-3.5 rounded-xl bg-black/20 border border-white/10 focus:border-lime-400 outline-none transition-colors" />
+              <label className="block text-xs font-bold uppercase mb-1.5 opacity-60 text-white">Имя</label>
+              <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ваше имя" className="w-full p-3.5 rounded-xl bg-black/20 border border-white/10 outline-none transition-colors text-white placeholder:text-white/50" />
             </div>
 
             <div className="w-full">
-              <label className="block text-xs font-bold uppercase mb-1.5 opacity-60">Username</label>
-              <div className={`flex rounded-xl overflow-hidden border transition-colors ${!isUsernameValid ? 'border-red-500' : 'border-white/10 focus-within:border-lime-400'}`}>
-                <div className="bg-white/10 flex items-center justify-center w-12 shrink-0 border-r border-white/10 font-bold">@</div>
-                <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} className="flex-1 p-3.5 bg-black/20 outline-none min-w-0" />
+              <label className="block text-xs font-bold uppercase mb-1.5 opacity-60 text-white">Username</label>
+              <div className={`flex rounded-xl overflow-hidden border transition-colors ${!isUsernameValid ? 'border-red-500' : 'border-white/10'}`}>
+                <div className="bg-white/10 flex items-center justify-center w-12 shrink-0 border-r border-white/10 font-bold text-white">@</div>
+                <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} className="flex-1 p-3.5 bg-black/20 outline-none min-w-0 text-white placeholder:text-white/50" />
                 <div className="bg-black/20 px-3 flex items-center justify-center">
-                  {usernameChecking ? <Loader size={18} className="animate-spin opacity-50" /> : (username.length > 0 && username !== user?.username) && (isUsernameValid ? <Check size={18} className="text-green-400" /> : <AlertCircle size={18} className="text-red-500" />)}
+                  {usernameChecking ? <Loader size={18} className="animate-spin opacity-50 text-white" /> : (username.length > 0 && username !== user?.username) && (isUsernameValid ? <Check size={18} className="text-green-400" /> : <AlertCircle size={18} className="text-red-500" />)}
                 </div>
               </div>
               {usernameError && <p className="text-xs text-red-400 mt-1.5">{usernameError}</p>}
@@ -319,23 +319,23 @@ export default function EditProfileModal({ isOpen, onClose, user, isDarkMode, on
           {/* ПРАВАЯ ЧАСТЬ */}
           <div className="md:w-7/12 p-6 space-y-5">
             <div>
-              <label className="block text-xs font-bold uppercase mb-1.5 opacity-60">О себе</label>
-              <textarea value={bio} onChange={(e) => setBio(e.target.value)} maxLength={150} className="w-full p-3.5 rounded-xl bg-black/20 border border-white/10 focus:border-lime-400 outline-none h-24 resize-none glass-scrollbar" />
+              <label className="block text-xs font-bold uppercase mb-1.5 opacity-60 text-white">О себе</label>
+              <textarea value={bio} onChange={(e) => setBio(e.target.value)} maxLength={150} className="w-full p-3.5 rounded-xl bg-black/20 border border-white/10 outline-none h-24 resize-none glass-scrollbar text-white placeholder:text-white/50" />
             </div>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold uppercase mb-1.5 opacity-60">Сайт</label>
-                <input type="text" value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://..." className="w-full p-3.5 rounded-xl bg-black/20 border border-white/10 focus:border-lime-400 outline-none" />
+                <label className="block text-xs font-bold uppercase mb-1.5 opacity-60 text-white">Сайт</label>
+                <input type="text" value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://..." className="w-full p-3.5 rounded-xl bg-black/20 border border-white/10 outline-none text-white placeholder:text-white/50" />
               </div>
               <div>
-                <label className="block text-xs font-bold uppercase mb-1.5 opacity-60">Город</label>
-                <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} className="w-full p-3.5 rounded-xl bg-black/20 border border-white/10 focus:border-lime-400 outline-none" />
+                <label className="block text-xs font-bold uppercase mb-1.5 opacity-60 text-white">Город</label>
+                <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} className="w-full p-3.5 rounded-xl bg-black/20 border border-white/10 outline-none text-white placeholder:text-white/50" />
               </div>
             </div>
 
             <div>
-               <label className="block text-xs font-bold uppercase mb-1.5 opacity-60">Пол</label>
+               <label className="block text-xs font-bold uppercase mb-1.5 opacity-60 text-white">Пол</label>
                <div className="gender-switch" style={liquidGlassStyles} data-active-index={activeGenderIndex}>
                   <div className="gender-blob" />
                   <div className="gender-option" onClick={() => setGender('male')} data-active={gender === 'male'}>
@@ -350,7 +350,7 @@ export default function EditProfileModal({ isOpen, onClose, user, isDarkMode, on
         </div>
 
         <div className="p-6 border-t border-white/20 dark:border-white/10 shrink-0 flex gap-4 bg-white/5 dark:bg-black/10">
-           <button onClick={onClose} className="flex-1 py-3.5 rounded-xl font-bold bg-white/10 hover:bg-white/20 border border-white/10 transition-all cursor-pointer">Отмена</button>
+           <button onClick={onClose} className="flex-1 py-3.5 rounded-xl font-bold bg-white/10 hover:bg-white/20 border border-white/10 transition-all text-white cursor-pointer">Отмена</button>
            <button onClick={handleSubmit} disabled={!isUsernameValid || loading || usernameChecking || !isChanged} className="flex-1 py-3.5 bg-lime-400 hover:bg-lime-500 text-black rounded-xl font-bold transition-all border border-lime-300 shadow-[0_0_20px_rgba(163,230,53,0.3)] disabled:opacity-50 flex justify-center items-center gap-2 cursor-pointer">
               {loading ? <Loader className="animate-spin" size={20} /> : 'Сохранить изменения'}
            </button>

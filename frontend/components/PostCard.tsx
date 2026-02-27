@@ -274,12 +274,18 @@ export default function PostCard({ post, currentUserId, onEdit, onUpdate, highli
     const postIdForSockets = post.id;
     const originalContentIdForSockets = displayContent.id;
 
-    const handlePostUpdate = (data: any) => { 
-      if (typeof data.likesCount === 'number') setLikesCount(data.likesCount); 
-      if (data.id === originalContentIdForSockets && typeof data.repostsCount === 'number') {
-          setRepostsCount(data.repostsCount);
-      }
-    };
+   const handlePostUpdate = (data: any) => {
+  // Обновление для самого поста (свои лайки/комментарии)
+  if (data.id === postIdForSockets) {
+    if (typeof data.likesCount === 'number') setLikesCount(data.likesCount);
+    // Если сервер присылает commentsCount в post_update, обновляем и его
+    if (typeof data.commentsCount === 'number') setCommentsCount(data.commentsCount);
+  }
+  // Обновление для оригинала (только счётчик репостов)
+  if (data.id === originalContentIdForSockets && typeof data.repostsCount === 'number') {
+    setRepostsCount(data.repostsCount);
+  }
+};
     const handleNewComment = (data: any) => { 
       if (typeof data.postCommentsCount === 'number') setCommentsCount(data.postCommentsCount); 
       else setCommentsCount((prev: number) => prev + 1); 

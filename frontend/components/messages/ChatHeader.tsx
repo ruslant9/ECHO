@@ -8,9 +8,10 @@ import { gql, useQuery } from '@apollo/client';
 import Avatar from '@/components/Avatar';
 import Tooltip from '@/components/Tooltip';
 import { formatTimeAgo } from '@/lib/time-ago';
-import { Conversation } from '@/types/messages';
+import { Conversation, Message } from '@/types/messages';
 import { motion, AnimatePresence } from 'framer-motion';
 import MessageCalendarModal from './MessageCalendarModal';
+import MessageSearchModal from './MessageSearchModal'; // <-- НОВЫЙ ИМПОРТ
 
 const GET_CONVERSATION_PARTICIPANTS_FOR_HEADER = gql`
   query GetConversationParticipantsForHeader($conversationId: Int!) {
@@ -37,6 +38,9 @@ interface ChatHeaderProps {
   onShowParticipants?: () => void;
   myId?: number;
   onJumpToDate?: (date: string) => void;
+  // 👇 новые пропсы для поиска
+  messages: Message[];
+  onJumpToMessage: (id: number) => void;
 }
 
 export default function ChatHeader({ 
@@ -55,6 +59,8 @@ export default function ChatHeader({
   onShowParticipants,
   myId,
   onJumpToDate,
+  messages, // новый проп
+  onJumpToMessage, // новый проп
 }: ChatHeaderProps) {
   const isGroup = conversation?.isGroup || false;
   const isChannel = conversation?.type === 'CHANNEL';
@@ -73,6 +79,7 @@ export default function ChatHeader({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [participantsTooltipVisible, setParticipantsTooltipVisible] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false); // новое состояние для поиска
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   const { data: participantsData } = useQuery(GET_CONVERSATION_PARTICIPANTS_FOR_HEADER, {
@@ -272,16 +279,18 @@ export default function ChatHeader({
                         <CalendarDays size={18} />
                         Календарь сообщений
                     </button>
-                    <div className={`h-px w-full my-1 ${isDarkMode ? 'bg-white/10' : 'bg-black/5'}`} />
+                    {/* Поиск для Избранного */}
                     <button
                       className={menuButtonClass}
                       onClick={() => {
                         setIsMenuOpen(false);
+                        setIsSearchOpen(true);
                       }}
                     >
                       <Search size={18} />
-                      Поиск (в разработке)
+                      Поиск в чате
                     </button>
+                    <div className={`h-px w-full my-1 ${isDarkMode ? 'bg-white/10' : 'bg-black/5'}`} />
                     <button
                       className={dangerButtonClass}
                       onClick={() => {
@@ -317,6 +326,19 @@ export default function ChatHeader({
                      >
                         <CalendarDays size={18} />
                         Календарь сообщений
+                     </button>
+                  )}
+                  {/* Поиск для групп */}
+                  {!hasLeft && (
+                     <button
+                        className={menuButtonClass}
+                        onClick={() => {
+                           setIsMenuOpen(false);
+                           setIsSearchOpen(true);
+                        }}
+                     >
+                        <Search size={18} />
+                        Поиск в чате
                      </button>
                   )}
                   {!hasLeft && <div className={`h-px w-full my-1 ${isDarkMode ? 'bg-white/10' : 'bg-black/5'}`} />}
@@ -380,6 +402,17 @@ export default function ChatHeader({
                     <CalendarDays size={18} />
                     Календарь сообщений
                   </button>
+                  {/* Поиск для личных сообщений */}
+                  <button
+                    className={menuButtonClass}
+                    onClick={() => {
+                        setIsMenuOpen(false);
+                        setIsSearchOpen(true);
+                    }}
+                  >
+                    <Search size={18} />
+                    Поиск в чате
+                  </button>
                   <div className={`h-px w-full my-1 ${isDarkMode ? 'bg-white/10' : 'bg-black/5'}`} />
                   <button
                     className={dangerButtonClass}
@@ -429,6 +462,19 @@ export default function ChatHeader({
             onDateSelect={(date) => {
                 if (onJumpToDate) onJumpToDate(date);
             }}
+        />
+      )}
+
+      {/* Модалка поиска */}
+      {conversation && (
+        <MessageSearchModal
+          isOpen={isSearchOpen}
+          onClose={() => setIsSearchOpen(false)}
+          messages={messages}
+          conversationId={conversation.id}
+          onJumpToMessage={onJumpToMessage}
+          isDarkMode={isDarkMode}
+          myId={myId || 0}
         />
       )}
     </div>
