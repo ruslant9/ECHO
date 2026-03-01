@@ -1,7 +1,7 @@
 @echo off
 chcp 65001 > nul
 setlocal enabledelayedexpansion
-title Git Sync (Универсальный)
+title Git Sync (Универсальный с автообновлением Prisma)
 
 :: Переходим в папку скрипта
 cd /d "%~dp0"
@@ -19,7 +19,7 @@ if exist ".git" (
     echo Статус: ✅ Репозиторий уже существует.
     echo.
     echo Выберите действие:
-    echo   1 - Получить изменения (git pull)
+    echo   1 - Получить изменения (git pull + автообновление БД)
     echo   2 - Отправить изменения (git push)
     echo   3 - Показать статус (git status)
     echo   4 - Клонировать заново (удалит текущий .git)
@@ -59,9 +59,19 @@ if exist ".git" (
 :pull
 echo.
 echo 📥 Получение изменений из удалённого репозитория...
-git pull
+:: Определяем текущую ветку
+for /f "delims=" %%I in ('git rev-parse --abbrev-ref HEAD') do set CURRENT_BRANCH=%%I
+echo Текущая ветка: !CURRENT_BRANCH!
+
+:: Привязываем локальную ветку к удаленной
+git branch --set-upstream-to=origin/!CURRENT_BRANCH! !CURRENT_BRANCH! >nul 2>&1
+
+:: Получаем изменения
+git pull origin !CURRENT_BRANCH!
 if %errorlevel% equ 0 (
-    echo ✅ Готово.
+    echo ✅ Новые файлы успешно загружены.
+    :: Вызываем блок автообновления бэкенда и БД
+    call :update_backend
 ) else (
     echo ❌ Ошибка при pull. Проверьте подключение или конфликты.
 )
@@ -81,7 +91,12 @@ if %errorlevel% equ 0 (
     git add .
     git commit -m "!commit_msg!"
 )
-git push
+
+:: Определяем текущую ветку
+for /f "delims=" %%I in ('git rev-parse --abbrev-ref HEAD') do set CURRENT_BRANCH=%%I
+
+:: Отправляем изменения
+git push -u origin !CURRENT_BRANCH!
 if %errorlevel% equ 0 (
     echo ✅ Готово.
 ) else (
@@ -124,6 +139,8 @@ xcopy temp_clone\* . /E /H /C /Y >nul
 :: Удаляем временную папку
 rmdir /s /q temp_clone
 echo ✅ Клонирование завершено.
+:: Вызываем блок автообновления бэкенда и БД после клонирования
+call :update_backend
 pause
 goto :menu
 
@@ -131,15 +148,13 @@ goto :menu
 echo.
 echo 📁 Инициализация нового репозитория...
 git init
-:: Настройка имени и почты (можно запросить)
-echo 👤 Настройка пользователя (для этого репозитория)
+echo 👤 Настройка пользователя
 set /p git_name="Ваше имя (по умолчанию Руслан): "
 if "!git_name!"=="" set git_name=Руслан
 set /p git_email="Ваш email (по умолчанию ruslanmailhome1@gmail.com): "
 if "!git_email!"=="" set git_email=ruslanmailhome1@gmail.com
 git config user.name "!git_name!"
 git config user.email "!git_email!"
-:: Создаём .gitignore если нет
 if not exist ".gitignore" (
     echo Создание .gitignore...
     (
@@ -162,6 +177,33 @@ if not exist ".gitignore" (
 )
 git add .
 git commit -m "Initial commit"
-echo Добавьте удалённый репозиторий: git remote add origin <URL>
+echo Добавьте удалённый репозиторий: git remote add origin ^<URL^>
 pause
 goto :menu
+
+:: ========== ФУНКЦИЯ ОБНОВЛЕНИЯ БЭКЕНДА И PRISMA ==========
+:update_backend
+if exist "backend\prisma\schema.prisma" (
+    echo.
+    echo 🔄 Обнаружена папка backend. Применяю обновления базы данных...
+    cd backend
+    
+    echo 📦 Установка зависимостей (если изменился package.json)...
+    call npm install >nul 2>&1
+    
+    echo 🛠️ Генерация новых типов Prisma...
+    call npx prisma generate
+    
+    echo 🗄️ Обновление колонок в базе данных...
+    call npx prisma db push --accept-data-loss
+    
+    echo 🏗️ Пересборка бэкенда...
+    call npm run build
+    
+    echo 🚀 Перезапуск сервера в PM2...
+    call pm2 restart backend 2>nul
+    
+    cd ..
+    echo ✅ Обновление бэкенда завершено успешно!
+)
+goto :eof

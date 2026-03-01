@@ -1,0 +1,36 @@
+import { Post } from '../../posts/models/post.model';
+import { Comment } from '../../posts/models/comment.model';
+import { Vibe } from '../../vibes/models/vibe.model';
+export declare class User {
+    id: number;
+    username: string;
+    name?: string;
+    email: string;
+    password?: string;
+    isOnline: boolean;
+    bio?: string;
+    location?: string;
+    gender?: string;
+    avatar?: string;
+    banner?: string;
+    website?: string;
+    createdAt: Date;
+    lastOnlineAt?: Date;
+    postsCount?: number;
+    friendsCount?: number;
+    subscriptionsCount?: number;
+    followersCount?: number;
+    vibes?: Vibe[];
+    friends?: User[];
+    subscriptions?: User[];
+    followers?: User[];
+    friendshipStatus?: string;
+    sentFriendRequestId?: number;
+    receivedFriendRequestId?: number;
+    likedVibes?: Vibe[];
+    likedPosts?: Post[];
+    likedComments?: Comment[];
+    isAdmin: boolean;
+    amIBlocked?: boolean;
+    isBlockedByMe?: boolean;
+}

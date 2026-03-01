@@ -2,15 +2,19 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { CloudinaryService } from '../upload/cloudinary.service'; // <--- ИМ
 
 const execPromise = promisify(exec);
 
 @Injectable()
 export class AdminService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private cloudinaryService: CloudinaryService // <--- ИНЖЕКТИРОВАТЬ СЮДА
+  ) {}
 
   async getStats() {
-    const [
+    const[
       totalUsers,
       onlineUsers,
       totalPosts,
@@ -26,14 +30,25 @@ export class AdminService {
       this.prisma.message.count(),
     ]);
 
+    // ПОЛУЧАЕМ СТАТИСТИКУ ХРАНИЛИЩ
+    const storageStats = await this.cloudinaryService.getStorageStats();
+
+    const totalStorageUsage = storageStats.reduce((acc, curr) => acc + curr.usage, 0);
+const totalStorageLimit = storageStats.reduce((acc, curr) => acc + curr.limit, 0);
+
+
     return {
-      totalUsers,
-      onlineUsers,
-      totalPosts,
-      totalLikes,
-      totalComments,
-      totalMessages,
-    };
+  totalUsers,
+  onlineUsers,
+  totalPosts,
+  totalLikes,
+  totalComments,
+  totalMessages,
+  storageStats,
+  totalStorageUsage, // Добавляем
+  totalStorageLimit, // Добавляем
+};
+
   }
 
   // ВНИМАНИЕ: Эти методы требуют, чтобы ваше приложение было запущено через process manager (например, PM2).

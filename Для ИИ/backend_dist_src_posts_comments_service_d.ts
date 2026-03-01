@@ -1,0 +1,182 @@
+import { PrismaService } from '../prisma.service';
+import { EventsGateway } from '../events/events.gateway';
+import { VoteType } from '@prisma/client';
+import { NotificationsService } from '../notifications/notifications.service';
+export declare class CommentsService {
+    private prisma;
+    private eventsGateway;
+    private notificationsService;
+    constructor(prisma: PrismaService, eventsGateway: EventsGateway, notificationsService: NotificationsService);
+    private getCommentContentSnippet;
+    recalculateCommentsCount(postId: number): Promise<number>;
+    findByPostId(postId: number, sort?: 'new' | 'popular', userId?: number): Promise<({
+        author: {
+            id: number;
+            email: string;
+            username: string;
+            name: string;
+            isOnline: boolean;
+            lastOnlineAt: Date;
+            isAdmin: boolean;
+            isVerified: boolean;
+            createdAt: Date;
+            bio: string;
+            location: string;
+            gender: string;
+            website: string;
+            avatar: string;
+            banner: string;
+        };
+        replies: ({
+            author: {
+                id: number;
+                email: string;
+                username: string;
+                name: string;
+                isOnline: boolean;
+                lastOnlineAt: Date;
+                isAdmin: boolean;
+                isVerified: boolean;
+                createdAt: Date;
+                bio: string;
+                location: string;
+                gender: string;
+                website: string;
+                avatar: string;
+                banner: string;
+            };
+        } & {
+            id: number;
+            createdAt: Date;
+            updatedAt: Date;
+            content: string;
+            likesCount: number;
+            authorId: number;
+            postId: number;
+            dislikesCount: number;
+            score: number;
+            parentId: number | null;
+        })[];
+    } & {
+        id: number;
+        createdAt: Date;
+        updatedAt: Date;
+        content: string;
+        likesCount: number;
+        authorId: number;
+        postId: number;
+        dislikesCount: number;
+        score: number;
+        parentId: number | null;
+    })[]>;
+    create(userId: number, postId: number, content: string, parentId?: number): Promise<{
+        author: {
+            id: number;
+            email: string;
+            username: string;
+            name: string;
+            isOnline: boolean;
+            lastOnlineAt: Date;
+            isAdmin: boolean;
+            isVerified: boolean;
+            createdAt: Date;
+            bio: string;
+            location: string;
+            gender: string;
+            website: string;
+            avatar: string;
+            banner: string;
+        };
+    } & {
+        id: number;
+        createdAt: Date;
+        updatedAt: Date;
+        content: string;
+        likesCount: number;
+        authorId: number;
+        postId: number;
+        dislikesCount: number;
+        score: number;
+        parentId: number | null;
+    }>;
+    vote(userId: number, commentId: number, type: VoteType): Promise<{
+        userVote: import(".prisma/client").$Enums.VoteType;
+        author: {
+            id: number;
+            email: string;
+            username: string;
+            name: string;
+            isOnline: boolean;
+            lastOnlineAt: Date;
+            isAdmin: boolean;
+            isVerified: boolean;
+            createdAt: Date;
+            bio: string;
+            location: string;
+            gender: string;
+            website: string;
+            avatar: string;
+            banner: string;
+        };
+        id: number;
+        createdAt: Date;
+        updatedAt: Date;
+        content: string;
+        likesCount: number;
+        authorId: number;
+        postId: number;
+        dislikesCount: number;
+        score: number;
+        parentId: number | null;
+    }>;
+    getCommentLikes(commentId: number): Promise<{
+        id: number;
+        email: string;
+        username: string;
+        name: string;
+        isOnline: boolean;
+        lastOnlineAt: Date;
+        isAdmin: boolean;
+        isVerified: boolean;
+        createdAt: Date;
+        bio: string;
+        location: string;
+        gender: string;
+        website: string;
+        avatar: string;
+        banner: string;
+    }[]>;
+    delete(userId: number, commentId: number): Promise<number>;
+    deleteMany(userId: number, commentIds: number[]): Promise<number>;
+    clear(userId: number, postId: number, type: 'ALL' | 'MINE' | 'OTHERS'): Promise<number>;
+    update(userId: number, commentId: number, content: string): Promise<{
+        author: {
+            id: number;
+            email: string;
+            username: string;
+            name: string;
+            isOnline: boolean;
+            lastOnlineAt: Date;
+            isAdmin: boolean;
+            isVerified: boolean;
+            createdAt: Date;
+            bio: string;
+            location: string;
+            gender: string;
+            website: string;
+            avatar: string;
+            banner: string;
+        };
+    } & {
+        id: number;
+        createdAt: Date;
+        updatedAt: Date;
+        content: string;
+        likesCount: number;
+        authorId: number;
+        postId: number;
+        dislikesCount: number;
+        score: number;
+        parentId: number | null;
+    }>;
+}

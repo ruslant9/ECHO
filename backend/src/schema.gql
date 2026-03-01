@@ -2,8 +2,23 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
+type Album {
+  artist: Artist!
+  coverUrl: String
+  featuredArtists: [Artist]
+  genre: String
+  id: Int!
+  releaseDate: DateTime
+  title: String!
+  tracks: [Track!]
+  year: Float
+}
+
 type Artist {
+  albums: [Album!]
   avatar: String
+  bio: String
+  featuredInAlbums: [Album!]
   id: Int!
   name: String!
 }
@@ -11,6 +26,14 @@ type Artist {
 input ChangePasswordInput {
   newPassword: String!
   oldPassword: String!
+}
+
+type CloudinaryStat {
+  cloudName: String!
+  isFull: Boolean!
+  limit: Float!
+  percentage: Float!
+  usage: Float!
 }
 
 type Comment {
@@ -158,6 +181,7 @@ input CreateTrackInput {
   genre: String
   releaseDate: DateTime
   title: String!
+  trackNumber: Int
   url: String!
 }
 
@@ -258,6 +282,12 @@ type Mutation {
   addParticipantToConversation(conversationId: Int!, userId: Int!): Boolean!
   addTrackToPlaylist(playlistId: Int!, trackId: Int!): Boolean!
   addVibeComment(content: String!, vibeId: Int!): Boolean!
+  adminDeleteAlbum(id: Int!): Boolean!
+  adminDeleteArtist(id: Int!): Boolean!
+  adminDeleteTrack(id: Int!): Boolean!
+  adminUpdateAlbum(input: UpdateAlbumInput!): Album!
+  adminUpdateArtist(input: UpdateArtistInput!): Artist!
+  adminUpdateTrack(input: UpdateTrackInput!): Track!
   blockUser(targetId: Int!): Boolean!
   cancelFriendRequest(requestId: Int!): Boolean!
   changePassword(input: ChangePasswordInput!): Boolean!
@@ -333,6 +363,7 @@ type Mutation {
   markMessagesRead(conversationId: Int!): Boolean!
   markNotificationsRead(ids: [Int!]!): Boolean!
   publishPostNow(postId: Int!): Post!
+  recordPlayback(trackId: Int!): Boolean!
   register(registerUserInput: RegisterUserInput!): LoginResponse!
   rejectFriendRequest(requestId: Int!): Boolean!
   removeFriend(friendId: Int!): Boolean!
@@ -424,6 +455,7 @@ type Playlist {
   owner: User!
   title: String!
   tracks: [Track!]
+  updatedAt: DateTime!
 }
 
 type Poll {
@@ -470,6 +502,10 @@ type Post {
 }
 
 type Query {
+  adminGetAllAlbums(query: String, skip: Int): [Album!]!
+  adminGetAllArtists(query: String, skip: Int): [Artist!]!
+  adminGetAllTracks(query: String, skip: Int): [Track!]!
+
   """Получить архивированные диалоги"""
   archivedConversations: [Conversation!]!
   checkUsername(username: String!): Boolean!
@@ -483,6 +519,10 @@ type Query {
 
   """Получить список всех диалогов пользователя"""
   conversations: [Conversation!]!
+  getAlbum(id: Int!): Album
+  getArtist(id: Int!): Artist
+  getArtistAlbums(artistId: Int!): [Album!]!
+  getArtistTopTracks(artistId: Int!): [Track!]!
   getCommentLikes(commentId: Int!): [User!]!
 
   """Получить информацию о беседе по коду приглашения"""
@@ -503,12 +543,13 @@ type Query {
 
   """Получить сообщения для конкретного диалога"""
   messages(conversationId: Int!, cursor: Int): [Message!]!
-  musicRecommendations: [Track!]!
+  musicRecommendations(skip: Int, take: Int): [Track!]!
   myFriends: [FriendshipOutput!]!
   myMusicLibrary: [Track!]!
   myNotificationSettings: NotificationSettingsModel!
   myNotifications: [Notification!]!
   myPlaylists: [Playlist!]!
+  myRecentHistory: [Track!]!
   myScheduledPosts: [Post!]!
   mySessions: [Session!]!
   outgoingRequests: [OutgoingRequestOutput!]!
@@ -521,7 +562,7 @@ type Query {
 
   """Поиск каналов и чатов"""
   searchConversations(query: String!): [Conversation!]!
-  searchMusic(query: String!): [Track!]!
+  searchMusic(query: String!): SearchResults!
   searchUsers(city: String, gender: String, query: String, registeredAfter: String): [User!]!
   serverStats: ServerStats!
 
@@ -558,8 +599,16 @@ input ResetPasswordInput {
   newPassword: String!
 }
 
+type SearchResults {
+  albums: [Album!]!
+  artists: [Artist!]!
+  playlists: [Playlist!]!
+  tracks: [Track!]!
+}
+
 type ServerStats {
   onlineUsers: Int!
+  storageStats: [CloudinaryStat!]!
   totalComments: Int!
   totalLikes: Int!
   totalMessages: Int!
@@ -584,13 +633,35 @@ type SystemMessageMention {
 }
 
 type Track {
+  album: Album
   artist: Artist!
   coverUrl: String
   duration: Int!
+  featuredArtists: [Artist]
+  genre: String
   id: Int!
   isLiked: Boolean!
+  releaseDate: DateTime
   title: String!
   url: String!
+}
+
+input UpdateAlbumInput {
+  artistId: Int
+  coverUrl: String
+  genre: String
+  id: Int!
+  releaseDate: DateTime
+  title: String
+  trackIds: [Int]
+  year: Int
+}
+
+input UpdateArtistInput {
+  avatar: String
+  bio: String
+  id: Int!
+  name: String
 }
 
 input UpdateNotificationSettingsInput {
@@ -615,6 +686,20 @@ input UpdatePostInput {
   content: String
   endPoll: Boolean
   images: [String]
+}
+
+input UpdateTrackInput {
+  albumId: Int
+  artistId: Int
+  coverUrl: String
+  duration: Int
+  featuredArtistIds: [Int!]
+  genre: String
+  id: Int!
+  releaseDate: DateTime
+  title: String
+  trackNumber: Int
+  url: String
 }
 
 input UpdateUserInput {
