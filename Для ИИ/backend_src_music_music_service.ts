@@ -2,10 +2,15 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { CreatePlaylistInput, UpdatePlaylistInput } from './dto/create-playlist.input';
 import { CreateArtistInput, CreateAlbumInput, CreateTrackInput } from './dto/admin-music.input';
+import { CloudinaryService } from '../upload/cloudinary.service'; // Импорт
 
 @Injectable()
 export class MusicService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private cloudinaryService: CloudinaryService // Добавьте это в конструктор
+  ) {}
+
 
   // === ПОЛЬЗОВАТЕЛЬСКИЕ МЕТОДЫ ===
 
@@ -436,6 +441,52 @@ async getRecentHistory(userId: number, skip = 0, take = 20) {
     orderBy: { createdAt: 'desc' },
     include: { artist: true, album: true, featuredArtists: true }
   });
+}
+
+async deleteAllArtistsAdmin(): Promise<boolean> {
+  // 1. Собираем URL всех файлов
+  const [artists, albums, tracks] = await Promise.all([
+    this.prisma.artist.findMany({ select: { avatar: true } }),
+    this.prisma.album.findMany({ select: { coverUrl: true } }),
+    this.prisma.track.findMany({ select: { url: true, coverUrl: true } }),
+  ]);
+
+  const allUrls = new Set<string>();
+  artists.forEach(a => a.avatar && allUrls.add(a.avatar));
+  albums.forEach(a => a.coverUrl && allUrls.add(a.coverUrl));
+  tracks.forEach(t => {
+    if (t.url) allUrls.add(t.url);
+    if (t.coverUrl) allUrls.add(t.coverUrl);
+  });
+
+  const urlList = Array.from(allUrls);
+  console.log(`[Admin] Starting mass deletion of ${urlList.length} files...`);
+
+  // 2. Удаляем файлы чанками (по 20 штук), чтобы не забить канал
+  const chunkSize = 20;
+  for (let i = 0; i < urlList.length; i += chunkSize) {
+    const chunk = urlList.slice(i, i + chunkSize);
+    await Promise.all(chunk.map(url => this.cloudinaryService.deleteFileByUrl(url)));
+    
+    // Небольшая пауза между чанками для стабильности
+    if (urlList.length > chunkSize) {
+        await new Promise(res => setTimeout(res, 100));
+    }
+  }
+
+  // 3. Очищаем БД. 
+  // Удаляем в правильном порядке, чтобы не нарушить FK constraints
+  await this.prisma.$transaction([
+    this.prisma.listeningHistory.deleteMany(),
+    this.prisma.playlistTrack.deleteMany(),
+    this.prisma.trackLike.deleteMany(),
+    this.prisma.track.deleteMany(),
+    this.prisma.album.deleteMany(),
+    this.prisma.artist.deleteMany(),
+  ]);
+
+  console.log(`[Admin] Mass deletion completed successfully.`);
+  return true;
 }
 
 async adminGetAllAlbums(query?: string, skip = 0) {

@@ -68,10 +68,17 @@ export class AdminResolver {
     return this.adminService.getStats();
   }
 
-  @Mutation(() => Boolean)
+   @Mutation(() => Boolean)
   async startMusicImport(@Args('artistName') artistName: string) {
-    // Запускаем процесс без await, чтобы не блокировать GraphQL запрос
-    this.musicImportService.importArtist(artistName); 
+    // Разбиваем строку по запятой, если пользователь ввел список
+    const artists = artistName.split(',').map(a => a.trim()).filter(a => a);
+    await this.musicImportService.addToQueue(artists);
+    return true;
+  }
+
+  @Mutation(() => Boolean)
+  async clearImportQueue() {
+    this.musicImportService.clearQueue();
     return true;
   }
   

@@ -278,6 +278,7 @@ export declare class MusicResolver {
         year: number | null;
         artistId: number;
     })[]>;
+    adminDeleteAllArtists(): Promise<boolean>;
     adminGetAllTracks(query?: string, skip?: number): Promise<({
         artist: {
             id: number;

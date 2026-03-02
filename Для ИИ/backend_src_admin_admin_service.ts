@@ -33,15 +33,22 @@ export class AdminService {
     // ПОЛУЧАЕМ СТАТИСТИКУ ХРАНИЛИЩ
     const storageStats = await this.cloudinaryService.getStorageStats();
 
+    const totalStorageUsage = storageStats.reduce((acc, curr) => acc + curr.usage, 0);
+const totalStorageLimit = storageStats.reduce((acc, curr) => acc + curr.limit, 0);
+
+
     return {
-      totalUsers,
-      onlineUsers,
-      totalPosts,
-      totalLikes,
-      totalComments,
-      totalMessages,
-      storageStats, // <--- ДОБАВИТЬ В ВОЗВРАТ
-    };
+  totalUsers,
+  onlineUsers,
+  totalPosts,
+  totalLikes,
+  totalComments,
+  totalMessages,
+  storageStats,
+  totalStorageUsage, // Добавляем
+  totalStorageLimit, // Добавляем
+};
+
   }
 
   // ВНИМАНИЕ: Эти методы требуют, чтобы ваше приложение было запущено через process manager (например, PM2).

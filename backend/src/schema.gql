@@ -283,6 +283,7 @@ type Mutation {
   addTrackToPlaylist(playlistId: Int!, trackId: Int!): Boolean!
   addVibeComment(content: String!, vibeId: Int!): Boolean!
   adminDeleteAlbum(id: Int!): Boolean!
+  adminDeleteAllArtists: Boolean!
   adminDeleteArtist(id: Int!): Boolean!
   adminDeleteTrack(id: Int!): Boolean!
   adminUpdateAlbum(input: UpdateAlbumInput!): Album!
@@ -294,6 +295,7 @@ type Mutation {
   checkChannelSlug(slug: String!): Boolean!
   clearAllNotifications: Boolean!
   clearComments(postId: Int!, type: String!): Int!
+  clearImportQueue: Boolean!
   confirmEmail(confirmEmailInput: ConfirmEmailInput!): LoginResponse!
   createAlbumAdmin(input: CreateAlbumInput!): Boolean!
   createArtistAdmin(input: CreateArtistInput!): Artist!
@@ -380,6 +382,7 @@ type Mutation {
 
   """Отправить сообщение"""
   sendMessage(content: String!, conversationId: Int, images: [String!], replyToId: Int, targetUserId: Int): Message!
+  startMusicImport(artistName: String!): Boolean!
   startServer: Boolean!
   stopServer: Boolean!
   terminateAllOtherSessions(password: String!): Boolean!
@@ -613,6 +616,8 @@ type ServerStats {
   totalLikes: Int!
   totalMessages: Int!
   totalPosts: Int!
+  totalStorageLimit: Float!
+  totalStorageUsage: Float!
   totalUsers: Int!
 }
 

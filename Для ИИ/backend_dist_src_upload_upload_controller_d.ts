@@ -15,7 +15,7 @@ export declare class UploadController {
     uploadAudio(file: Express.Multer.File): Promise<{
         url: string;
     }>;
-    uploadVideo(file: Express.Multer.File): Promise<{
+    uploadVideo(file: Express.Multer.File, startTime?: string, endTime?: string): Promise<{
         url: string;
     }>;
 }

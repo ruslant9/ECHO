@@ -1,9 +1,11 @@
 import { PrismaService } from '../prisma.service';
 import { CreatePlaylistInput, UpdatePlaylistInput } from './dto/create-playlist.input';
 import { CreateArtistInput, CreateAlbumInput, CreateTrackInput } from './dto/admin-music.input';
+import { CloudinaryService } from '../upload/cloudinary.service';
 export declare class MusicService {
     private prisma;
-    constructor(prisma: PrismaService);
+    private cloudinaryService;
+    constructor(prisma: PrismaService, cloudinaryService: CloudinaryService);
     getRecommendations(userId: number, skip?: number, take?: number): Promise<any[]>;
     search(query: string, userId: number): Promise<{
         tracks: any[];
@@ -326,6 +328,7 @@ export declare class MusicService {
         trackNumber: number | null;
         albumId: number | null;
     })[]>;
+    deleteAllArtistsAdmin(): Promise<boolean>;
     adminGetAllAlbums(query?: string, skip?: number): Promise<({
         artist: {
             id: number;

@@ -6,5 +6,9 @@ export declare class CloudinaryService {
     getStorageStats(): Promise<any[]>;
     private getAvailableAccount;
     uploadImage(filePath: string, folder: string): Promise<string>;
-    uploadMedia(filePath: string, folder: string, resourceType: 'video' | 'raw' | 'auto'): Promise<string>;
+    deleteFileByUrl(url: string): Promise<void>;
+    uploadMedia(filePath: string, folder: string, resourceType: 'video' | 'raw' | 'auto', options?: {
+        startOffset?: number;
+        endOffset?: number;
+    }): Promise<string>;
 }

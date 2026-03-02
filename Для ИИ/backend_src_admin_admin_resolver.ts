@@ -1,8 +1,9 @@
-import { Resolver, Query, Mutation, ObjectType, Field, Int, Float } from '@nestjs/graphql'; 
+import { Resolver, Query, Mutation, ObjectType, Field, Int, Float, Args } from '@nestjs/graphql'; // Добавили Args
 import { UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { AdminGuard } from '../auth/admin.guard';
 import { AdminService } from './admin.service';
+import { MusicImportService } from '../music/music-import.service'; // Добавили импорт сервиса
 
 @ObjectType()
 class ServerStats {
@@ -23,10 +24,18 @@ class ServerStats {
 
   @Field(() => Int)
   totalMessages: number;
+  
+  @Field(() => Float)
+  totalStorageUsage: number;
+
+  @Field(() => Float)
+  totalStorageLimit: number;
 
   @Field(() => [CloudinaryStat])
   storageStats: CloudinaryStat[];
 }
+
+
 
 @ObjectType()
 class CloudinaryStat {
@@ -46,20 +55,32 @@ class CloudinaryStat {
   isFull: boolean;
 }
 
-
 @Resolver()
 @UseGuards(JwtAuthGuard, AdminGuard)
 export class AdminResolver {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly musicImportService: MusicImportService, // Инжектировали сервис сюда
+  ) {}
 
   @Query(() => ServerStats)
   async serverStats() {
     return this.adminService.getStats();
   }
-  
-  // ВАЖНО: Функции ниже для демонстрации. В продакшене используйте
-  // более безопасные способы управления сервером, а не прямые shell-команды.
-  // Они требуют, чтобы ваше приложение было запущено через PM2.
+
+   @Mutation(() => Boolean)
+  async startMusicImport(@Args('artistName') artistName: string) {
+    // Разбиваем строку по запятой, если пользователь ввел список
+    const artists = artistName.split(',').map(a => a.trim()).filter(a => a);
+    await this.musicImportService.addToQueue(artists);
+    return true;
+  }
+
+  @Mutation(() => Boolean)
+  async clearImportQueue() {
+    this.musicImportService.clearQueue();
+    return true;
+  }
   
   @Mutation(() => Boolean)
   async startServer(): Promise<boolean> {

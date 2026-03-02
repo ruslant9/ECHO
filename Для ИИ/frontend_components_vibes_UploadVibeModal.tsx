@@ -176,47 +176,63 @@ export default function UploadVibeModal({ isOpen, onClose, onSuccess }: any) {
   }, [isDragging, duration, startTime, endTime]);
 
 
-  const handleUpload = async () => {
-    if (!videoFile) return;
-    setStatus('uploading'); // Включаем режим загрузки
+  const [uploadProgress, setUploadProgress] = useState(0);
 
-    try {
-      const formData = new FormData();
-      formData.append('file', videoFile);
-      
-      const token = Cookies.get('token');
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3400'}/upload/video`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
-      
-      if (!res.ok) throw new Error('Ошибка загрузки видео');
-      const { url } = await res.json();
-      const tagsArray = hashtags.split(' ').map(t => t.trim().replace('#', '')).filter(t => t.length > 0);
+const handleUpload = async () => {
+  if (!videoFile) return;
+  setStatus('uploading');
+  setUploadProgress(0);
 
-      // Вызов мутации
-      const { data } = await createVibe({
-        variables: { videoUrl: url, description, hashtags: tagsArray, isPrivate }
-      });
+  const formData = new FormData();
+  formData.append('file', videoFile);
+  // Передаем тайминги в запросе
+  formData.append('startTime', startTime.toString());
+  formData.append('endTime', endTime.toString());
 
-      // Успех!
-      setStatus('success');
-      const newVibeId = data.createVibe; // Теперь это ID (Int)
+  const token = Cookies.get('token');
+  const xhr = new XMLHttpRequest();
 
-      // Задержка перед закрытием и редиректом
-      setTimeout(() => {
-        onSuccess();
-        onClose();
-        // Переход к новому вайбу
-        router.push(`/dashboard/vibes?vibeId=${newVibeId}`);
-      }, 1500);
+  // Отслеживаем прогресс ТУТ
+  xhr.upload.addEventListener('progress', (e) => {
+    if (e.lengthComputable) {
+      const percent = Math.round((e.loaded * 100) / e.total);
+      setUploadProgress(percent);
+    }
+  });
 
-    } catch (e) {
-      alert('Ошибка публикации');
-      setStatus('idle');
+  xhr.onreadystatechange = async () => {
+    if (xhr.readyState === 4) {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        const response = JSON.parse(xhr.responseText);
+        const { url } = response;
+        
+        const tagsArray = hashtags.split(' ').map(t => t.trim().replace('#', '')).filter(t => t.length > 0);
+
+        try {
+          const { data } = await createVibe({
+            variables: { videoUrl: url, description, hashtags: tagsArray, isPrivate }
+          });
+          setStatus('success');
+          setTimeout(() => {
+            onSuccess();
+            onClose();
+            router.push(`/dashboard/vibes?vibeId=${data.createVibe}`);
+          }, 1500);
+        } catch (e) {
+          setStatus('idle');
+          alert('Ошибка сохранения в БД');
+        }
+      } else {
+        setStatus('idle');
+        alert('Ошибка загрузки файла');
+      }
     }
   };
+
+  xhr.open('POST', `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3400'}/upload/video`);
+  xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+  xhr.send(formData);
+};
 
   const formatTime = (time: number) => {
       if (!Number.isFinite(time)) return "0:00";
@@ -237,19 +253,26 @@ export default function UploadVibeModal({ isOpen, onClose, onSuccess }: any) {
             exit={{ opacity: 0 }}
             className="absolute inset-0 z-50 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center"
           >
-            {status === 'uploading' && (
-              <div className="flex flex-col items-center gap-4">
-                {/* Крутящийся лоадер */}
-                <div className="relative w-20 h-20">
-                  <motion.div 
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                    className="w-full h-full border-4 border-white/20 border-t-lime-400 rounded-full"
-                  />
-                </div>
-                <p className="text-white font-bold text-lg animate-pulse">Публикуем вайб...</p>
-              </div>
-            )}
+           {status === 'uploading' && (
+  <div className="flex flex-col items-center gap-4">
+    <div className="relative w-24 h-24">
+      {/* Фоновый круг */}
+      <svg className="w-full h-full -rotate-90">
+        <circle cx="48" cy="48" r="40" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-white/10" />
+        <circle 
+          cx="48" cy="48" r="40" stroke="currentColor" strokeWidth="8" fill="transparent" 
+          strokeDasharray={251}
+          strokeDashoffset={251 - (251 * uploadProgress) / 100}
+          className="text-lime-400 transition-all duration-300"
+        />
+      </svg>
+      <div className="absolute inset-0 flex items-center justify-center font-black text-white">
+        {uploadProgress}%
+      </div>
+    </div>
+    <p className="text-white font-bold text-lg animate-pulse">Загружаем в облако...</p>
+  </div>
+)}
 
             {status === 'success' && (
               <motion.div 

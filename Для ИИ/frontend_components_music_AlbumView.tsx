@@ -101,29 +101,32 @@ export default function AlbumView({ albumId, onBack, onArtistClick }: { albumId:
               <div className="flex items-center gap-4 text-sm mb-8 font-medium opacity-90">
                   {/* Основной артист */}
                   <div className="flex items-center gap-1">
-                      <User size={16} />
-                      <span onClick={() => onArtistClick(album.artist.id)} className="hover:underline cursor-pointer">
-                        {album.artist.name}
-                      </span>
-                      
-                      {/* УСЛОВНЫЙ РЕНДЕРИНГ: Показываем фиты только если это сингл */}
-                      {isSingle && album.featuredArtists?.length > 0 && (
-                        <>
-                          <span className="opacity-70 mx-1">feat.</span>
-                          {album.featuredArtists.map((feat: any, idx: number) => (
-                            <React.Fragment key={feat.id}>
-                              <span 
-                                onClick={(e) => { e.stopPropagation(); onArtistClick(feat.id); }} 
-                                className="hover:underline cursor-pointer"
-                              >
-                                {feat.name}
-                              </span>
-                              {idx < album.featuredArtists.length - 1 && <span>, </span>}
-                            </React.Fragment>
-                          ))}
-                        </>
-                      )}
-                  </div>
+  <User size={16} />
+  <span onClick={() => onArtistClick(album.artist.id)} className="hover:underline cursor-pointer">
+    {album.artist.name}
+  </span>
+  
+  {/* ДОБАВЛЯЕМ .filter(f => f.id !== album.artist.id) СЮДА: */}
+  {isSingle && album.featuredArtists?.filter((f: any) => f.id !== album.artist.id).length > 0 && (
+    <>
+      <span className="opacity-70 mx-1">feat.</span>
+      {album.featuredArtists
+        .filter((feat: any) => feat.id !== album.artist.id) // Дублируем фильтр здесь
+        .map((feat: any, idx: number, filteredArr: any[]) => (
+          <React.Fragment key={feat.id}>
+            <span 
+              onClick={(e) => { e.stopPropagation(); onArtistClick(feat.id); }} 
+              className="hover:underline cursor-pointer"
+            >
+              {feat.name}
+            </span>
+            {idx < filteredArr.length - 1 && <span>, </span>}
+          </React.Fragment>
+        ))}
+    </>
+  )}
+</div>
+
 
                   <span>•</span>
                   <div className="flex items-center gap-1"><Calendar size={14} /> {formattedDate}</div>

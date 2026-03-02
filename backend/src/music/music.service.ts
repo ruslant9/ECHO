@@ -2,10 +2,15 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { CreatePlaylistInput, UpdatePlaylistInput } from './dto/create-playlist.input';
 import { CreateArtistInput, CreateAlbumInput, CreateTrackInput } from './dto/admin-music.input';
+import { CloudinaryService } from '../upload/cloudinary.service'; // Импорт
 
 @Injectable()
 export class MusicService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private cloudinaryService: CloudinaryService // Добавьте это в конструктор
+  ) {}
+
 
   // === ПОЛЬЗОВАТЕЛЬСКИЕ МЕТОДЫ ===
 
@@ -20,70 +25,76 @@ export class MusicService {
 }
 
    async search(query: string, userId: number) {
-    if (!query) {
-      return { tracks: [], artists: [], albums: [], playlists: [] };
-    }
-
-    // Параллельный запуск запросов через транзакцию для производительности
-    const [tracks, artists, albums, playlists] = await this.prisma.$transaction([
-      // 1. Поиск треков (по названию или жанру)
-      this.prisma.track.findMany({
-        where: {
-          OR: [
-            { title: { contains: query, mode: 'insensitive' } },
-            { genre: { contains: query, mode: 'insensitive' } }
-          ]
-        },
-        include: { 
-          artist: true, 
-          album: true, 
-          featuredArtists: true // <--- КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: подгружаем фиты
-        },
-        take: 15
-      }),
-
-      // 2. Поиск артистов (по имени)
-      this.prisma.artist.findMany({
-        where: { name: { contains: query, mode: 'insensitive' } },
-        take: 10
-      }),
-
-      // 3. Поиск альбомов (по названию)
-      this.prisma.album.findMany({
-        where: { title: { contains: query, mode: 'insensitive' } },
-        include: { artist: true },
-        take: 10
-      }),
-
-      // 4. Поиск плейлистов (публичные или созданные текущим пользователем)
-      this.prisma.playlist.findMany({
-        where: {
-          title: { contains: query, mode: 'insensitive' },
-          OR: [
-            { isPrivate: false },
-            { ownerId: userId }
-          ]
-        },
-        include: { 
-          owner: true,
-          tracks: { 
-            include: { track: true } 
-          }
-        },
-        take: 10
-      })
-    ]);
-
-    // Проставляем статус "лайкнуто" (isLiked) для найденных треков
-    const tracksWithLikes = await this.mapTracks(tracks, userId);
-
-    return {
-      tracks: tracksWithLikes,
-      artists,
-      albums,
-      playlists
-    };
+  if (!query) {
+    return { tracks: [], artists: [], albums: [], playlists: [] };
   }
+
+  // Выполняем запросы
+  const [tracks, artists, rawAlbums, playlists] = await this.prisma.$transaction([
+    // 1. Поиск треков
+    this.prisma.track.findMany({
+      where: {
+        OR: [
+          { title: { contains: query, mode: 'insensitive' } },
+          { genre: { contains: query, mode: 'insensitive' } }
+        ]
+      },
+      include: { 
+        artist: true, 
+        album: true, 
+        featuredArtists: true 
+      },
+      take: 15
+    }),
+
+    // 2. Поиск артистов
+    this.prisma.artist.findMany({
+      where: { name: { contains: query, mode: 'insensitive' } },
+      take: 10
+    }),
+
+    // 3. Поиск альбомов (берем больше результатов, чтобы было из чего фильтровать)
+    this.prisma.album.findMany({
+      where: {
+        title: { contains: query, mode: 'insensitive' },
+      },
+      include: { 
+        artist: true,
+        _count: {
+          select: { tracks: true } // Получаем количество треков
+        }
+      },
+      take: 50 // Берем с запасом
+    }),
+
+    // 4. Поиск плейлистов
+    this.prisma.playlist.findMany({
+      where: {
+        title: { contains: query, mode: 'insensitive' },
+        OR: [{ isPrivate: false }, { ownerId: userId }]
+      },
+      include: { 
+        owner: true,
+        tracks: { include: { track: true } } 
+      },
+      take: 10
+    })
+  ]);
+
+  // ФИЛЬТРАЦИЯ: Оставляем только те альбомы, где 2 трека и более
+  const albums = rawAlbums
+    .filter(album => album._count.tracks >= 2)
+    .slice(0, 10); // Ограничиваем до 10 после фильтрации
+
+  const tracksWithLikes = await this.mapTracks(tracks, userId);
+
+  return {
+    tracks: tracksWithLikes,
+    artists,
+    albums,
+    playlists
+  };
+}
 
   // 1. Метод записи прослушивания
 async recordPlayback(userId: number, trackId: number) {
@@ -436,6 +447,52 @@ async getRecentHistory(userId: number, skip = 0, take = 20) {
     orderBy: { createdAt: 'desc' },
     include: { artist: true, album: true, featuredArtists: true }
   });
+}
+
+async deleteAllArtistsAdmin(): Promise<boolean> {
+  // 1. Собираем URL всех файлов
+  const [artists, albums, tracks] = await Promise.all([
+    this.prisma.artist.findMany({ select: { avatar: true } }),
+    this.prisma.album.findMany({ select: { coverUrl: true } }),
+    this.prisma.track.findMany({ select: { url: true, coverUrl: true } }),
+  ]);
+
+  const allUrls = new Set<string>();
+  artists.forEach(a => a.avatar && allUrls.add(a.avatar));
+  albums.forEach(a => a.coverUrl && allUrls.add(a.coverUrl));
+  tracks.forEach(t => {
+    if (t.url) allUrls.add(t.url);
+    if (t.coverUrl) allUrls.add(t.coverUrl);
+  });
+
+  const urlList = Array.from(allUrls);
+  console.log(`[Admin] Starting mass deletion of ${urlList.length} files...`);
+
+  // 2. Удаляем файлы чанками (по 20 штук), чтобы не забить канал
+  const chunkSize = 20;
+  for (let i = 0; i < urlList.length; i += chunkSize) {
+    const chunk = urlList.slice(i, i + chunkSize);
+    await Promise.all(chunk.map(url => this.cloudinaryService.deleteFileByUrl(url)));
+    
+    // Небольшая пауза между чанками для стабильности
+    if (urlList.length > chunkSize) {
+        await new Promise(res => setTimeout(res, 100));
+    }
+  }
+
+  // 3. Очищаем БД. 
+  // Удаляем в правильном порядке, чтобы не нарушить FK constraints
+  await this.prisma.$transaction([
+    this.prisma.listeningHistory.deleteMany(),
+    this.prisma.playlistTrack.deleteMany(),
+    this.prisma.trackLike.deleteMany(),
+    this.prisma.track.deleteMany(),
+    this.prisma.album.deleteMany(),
+    this.prisma.artist.deleteMany(),
+  ]);
+
+  console.log(`[Admin] Mass deletion completed successfully.`);
+  return true;
 }
 
 async adminGetAllAlbums(query?: string, skip = 0) {

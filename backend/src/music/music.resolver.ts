@@ -158,6 +158,13 @@ async myRecentHistory(@Context() ctx) {
     return this.musicService.getArtistAlbums(artistId);
   }
 
+  @Mutation(() => Boolean)
+@UseGuards(JwtAuthGuard, AdminGuard)
+async adminDeleteAllArtists() {
+  return this.musicService.deleteAllArtistsAdmin();
+}
+
+
   @Query(() => [Track])
 @UseGuards(JwtAuthGuard, AdminGuard)
 async adminGetAllTracks(

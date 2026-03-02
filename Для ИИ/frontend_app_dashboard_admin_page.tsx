@@ -5,15 +5,29 @@ import { gql, useQuery, useMutation } from '@apollo/client';
 import { useTheme } from '@/context/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Users, UsersRound, Newspaper, Heart, MessageSquare, MessagesSquare,
-  Power, PowerOff, RefreshCw, AlertTriangle, ChevronLeft, Activity,
-  Music, Server, HardDrive, DownloadCloud, Play, Trash2, Loader
+  Users,
+  UsersRound,
+  Newspaper,
+  Heart,
+  MessageSquare,
+  MessagesSquare,
+  Power,
+  PowerOff,
+  RefreshCw,
+  AlertTriangle,
+  ChevronLeft,
+  Activity,
+  Music,
+  Server,
+  HardDrive,
+  DownloadCloud
 } from 'lucide-react';
 import LoadingScreen from '@/components/LoadingScreen';
 import ConfirmationModal from '@/components/ConfirmationModal';
 import Toast from '@/components/Toast';
 import { notFound, useRouter } from 'next/navigation';
 import AdminMusicPanel from '@/components/admin/AdminMusicPanel';
+import AdminAutoImport from '@/components/admin/AdminAutoImport';
 import { LIQUID_GLASS_NOISE_B64 } from '@/lib/constants';
 
 /* ================= GRAPHQL ================= */
@@ -27,6 +41,8 @@ const GET_SERVER_STATS = gql`
       totalLikes
       totalComments
       totalMessages
+      totalStorageUsage
+      totalStorageLimit
       storageStats {
         cloudName
         usage
@@ -56,9 +72,18 @@ const RESTART_SERVER = gql`mutation RestartServer { restartServer }`;
 
 type ToastState = { message: string; type: 'success' | 'error'; };
 type ConfirmationState = { isOpen: boolean; title: string; message: string; onConfirm: () => void; };
-type AdminSection = 'server' | 'music';
+type AdminSection = 'server' | 'music' | 'import';
 
-/* ================= UI COMPONENTS ================= */
+/* ================= HELPERS ================= */
+
+function formatBytes(bytes: number, decimals = 2) {
+  if (!bytes || bytes === 0) return '0 Байт';
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ['Байт', 'КБ', 'МБ', 'ГБ', 'ТБ'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+}
 
 const StatCard = ({ icon: Icon, title, value, color }: any) => {
   const { isDarkMode } = useTheme();
@@ -88,15 +113,6 @@ const StatCard = ({ icon: Icon, title, value, color }: any) => {
   );
 };
 
-function formatBytes(bytes: number, decimals = 2) {
-  if (!+bytes) return '0 Байт';
-  const k = 1024;
-  const dm = decimals < 0 ? 0 : decimals;
-  const sizes = ['Байт', 'КБ', 'МБ', 'ГБ', 'ТБ'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
-}
-
 /* ================= PAGE ================= */
 
 export default function AdminDashboardPage() {
@@ -111,7 +127,6 @@ export default function AdminDashboardPage() {
   });
 
   const [pingStatus, setPingStatus] = useState<'online' | 'offline' | 'checking'>('checking');
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [pingTime, setPingTime] = useState<number | null>(null);
 
   const { data, loading, error, refetch: refetchStats } = useQuery(GET_SERVER_STATS, {
@@ -133,11 +148,7 @@ export default function AdminDashboardPage() {
   const serverIsOnline = pingStatus === 'online';
 
   if (loading && !data) return <LoadingScreen />;
-
-// Если данных нет и мы точно знаем, что юзер не админ — тогда 404
-if (data && data.me && !data.me.isAdmin) {
-    notFound();
-}
+  if ((data && !data.me?.isAdmin) || error) notFound();
 
   const stats = data?.serverStats;
 
@@ -174,16 +185,15 @@ if (data && data.me && !data.me.isAdmin) {
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       <ConfirmationModal {...confirmation} onClose={() => setConfirmation(prev => ({ ...prev, isOpen: false }))} />
 
-      {/* Стили для вкладок */}
       <style dangerouslySetInnerHTML={{ __html: `
         .admin-switcher {
           position: relative;
           z-index: 1;
           display: flex;
           align-items: center;
-          gap: 4px;
+          gap: 8px;
           height: 56px;
-          padding: 5px;
+          padding: 6px;
           border-radius: 99em;
           background-color: color-mix(in srgb, var(--c-glass) 12%, transparent);
           backdrop-filter: blur(8px) url(#${filterId}) saturate(var(--saturation));
@@ -202,15 +212,24 @@ if (data && data.me && !data.me.isAdmin) {
           font-size: 14px;
           font-weight: 700;
           cursor: pointer;
-          transition: color 200ms;
+          transition: all 200ms;
+          border: 2px solid transparent;
         }
         .admin-option:hover { color: var(--c-action); }
-        .admin-option[data-active="true"] { color: ${isDarkMode ? '#000' : '#000'}; cursor: default; }
+        
+        /* Исправлено: Обводка активной кнопки */
+        .admin-option[data-active="true"] { 
+          color: #fff; 
+          cursor: default; 
+          border-color: #a3e635;
+          background: rgba(163, 230, 53, 0.1);
+        }
         
         .admin-blob {
           border-radius: 99em;
           background-color: #a3e635;
           box-shadow: 0 0 15px rgba(163,230,53,0.5);
+          opacity: 0.9;
         }
       `}} />
 
@@ -225,25 +244,33 @@ if (data && data.me && !data.me.isAdmin) {
       <div className={`min-h-screen p-6 md:p-10 transition-colors ${isDarkMode ? 'bg-black text-zinc-100' : 'bg-gray-50 text-zinc-900'}`}>
         <div className="max-w-7xl mx-auto">
           
-          {/* HEADER */}
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
+          {/* HEADER: Изменен на flex-col для опускания вкладок */}
+          <div className="flex flex-col items-start gap-8 mb-10">
             <div>
                 <button onClick={() => router.back()} className={`mb-4 px-4 py-2 rounded-full flex items-center gap-2 transition-colors cursor-pointer w-fit ${isDarkMode ? 'bg-zinc-900 hover:bg-zinc-800' : 'bg-zinc-200 hover:bg-zinc-300'}`}>
                     <ChevronLeft size={16} /> Назад
                 </button>
-                <h1 className="text-4xl font-black tracking-tight">Панель администратора</h1>
+                <h1 className="text-4xl font-black tracking-tight uppercase">Панель управления</h1>
             </div>
 
-            {/* ВКЛАДКИ (ПЕРЕКЛЮЧАТЕЛЬ) */}
-          <div className="admin-switcher" style={liquidGlassStyles}>
+            {/* ВКЛАДКИ ТЕПЕРЬ ПОД ЗАГОЛОВКОМ */}
+            <div className="admin-switcher" style={liquidGlassStyles}>
                 {[
                     { id: 'server', label: 'Система', icon: Activity },
-                    { id: 'music', label: 'Медиатека', icon: Music },
-                    { id: 'import', label: 'Автозагрузка', icon: DownloadCloud }
+                    { id: 'music', label: 'Музыка', icon: Music },
+                    { id: 'import', label: 'Импорт', icon: DownloadCloud }
                 ].map((tab) => (
-                    <button key={tab.id} onClick={() => setActiveSection(tab.id as AdminSection)} className="admin-option gap-2" data-active={activeSection === tab.id}>
-                        {activeSection === tab.id && <motion.div layoutId="admin-active-blob" className="admin-blob" transition={{ type: "spring", stiffness: 400, damping: 30 }} />}
-                        <tab.icon size={18} /> <span className="relative z-10">{tab.label}</span>
+                    <button
+                        key={tab.id}
+                        onClick={() => setActiveSection(tab.id as AdminSection)}
+                        className="admin-option gap-2"
+                        data-active={activeSection === tab.id}
+                    >
+                        {activeSection === tab.id && (
+                            <motion.div layoutId="admin-active-blob" className="admin-blob absolute inset-0 z-0" transition={{ type: "spring", stiffness: 400, damping: 30 }} />
+                        )}
+                        <tab.icon size={18} className="relative z-10" />
+                        <span className="relative z-10">{tab.label}</span>
                     </button>
                 ))}
             </div>
@@ -259,6 +286,40 @@ if (data && data.me && !data.me.isAdmin) {
                     transition={{ duration: 0.3 }}
                     className="space-y-8"
                 >
+                    {/* ОБЩИЙ ОБЪЕМ ХРАНИЛИЩА (НОВЫЙ БЛОК) */}
+                    <div className={`p-8 rounded-[40px] border flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl relative overflow-hidden ${isDarkMode ? 'bg-lime-400/5 border-lime-400/20' : 'bg-lime-50 border-lime-200'}`}>
+                         <div className="flex items-center gap-6 relative z-10">
+                            <div className="p-5 bg-lime-400 text-black rounded-3xl shadow-xl shadow-lime-500/20">
+                                <HardDrive size={36} />
+                            </div>
+                            <div>
+                                <p className="text-xs font-black uppercase tracking-[0.2em] opacity-50 mb-1">Суммарное облако</p>
+                                <h3 className="text-3xl font-black tabular-nums">
+                                    {formatBytes(stats?.totalStorageUsage)} 
+                                    <span className="text-xl font-medium opacity-40 mx-2">/</span>
+                                    {formatBytes(stats?.totalStorageLimit)}
+                                </h3>
+                            </div>
+                         </div>
+                         
+                         <div className="text-right relative z-10">
+                             <div className="text-5xl font-black text-lime-500 mb-1">
+                                {stats?.totalStorageLimit ? ((stats.totalStorageUsage / stats.totalStorageLimit) * 100).toFixed(1) : 0}%
+                             </div>
+                             <p className="text-[10px] font-bold uppercase tracking-widest opacity-40">Общая заполненность</p>
+                         </div>
+
+                         {/* Прогресс-бар на всю ширину */}
+                         <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-zinc-200 dark:bg-white/5">
+                             <motion.div 
+                                initial={{ width: 0 }}
+                                animate={{ width: `${(stats?.totalStorageUsage / stats?.totalStorageLimit) * 100}%` }}
+                                transition={{ duration: 1.5, ease: "circOut" }}
+                                className="h-full bg-lime-400 shadow-[0_0_20px_#a3e635]"
+                             />
+                         </div>
+                    </div>
+
                     {/* Секция управления сервером */}
                     <div className={`p-8 rounded-3xl border overflow-hidden relative ${isDarkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200 shadow-sm'}`}>
                         <div className="relative z-10">
@@ -284,64 +345,58 @@ if (data && data.me && !data.me.isAdmin) {
                                     <PowerOff size={18} /> Остановить
                                 </button>
                             </div>
-                            {error && (
-                                <div className="mt-6 p-4 rounded-xl bg-red-500/10 text-red-400 text-sm flex items-center gap-3 border border-red-500/20">
-                                    <AlertTriangle size={20} />
-                                    <span>Ошибка соединения с API статистики. Проверьте логи сервера.</span>
-                                </div>
-                            )}
                         </div>
                     </div>
 
                     {/* Карточки статистики */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                        <StatCard icon={UsersRound} title="Всего пользователей" value={stats?.totalUsers} color="blue" />
-                        <StatCard icon={Users} title="Онлайн сейчас" value={stats?.onlineUsers} color="green" />
-                        <StatCard icon={Newspaper} title="Опубликовано постов" value={stats?.totalPosts} color="purple" />
-                        <StatCard icon={Heart} title="Поставлено лайков" value={stats?.totalLikes} color="red" />
-                        <StatCard icon={MessageSquare} title="Написано комментов" value={stats?.totalComments} color="yellow" />
-                        <StatCard icon={MessagesSquare} title="Сообщений в чатах" value={stats?.totalMessages} color="indigo" />
+                        <StatCard icon={UsersRound} title="Пользователи" value={stats?.totalUsers} color="blue" />
+                        <StatCard icon={Users} title="В сети" value={stats?.onlineUsers} color="green" />
+                        <StatCard icon={Newspaper} title="Посты" value={stats?.totalPosts} color="purple" />
+                        <StatCard icon={Heart} title="Лайки" value={stats?.totalLikes} color="red" />
+                        <StatCard icon={MessageSquare} title="Комментарии" value={stats?.totalComments} color="yellow" />
+                        <StatCard icon={MessagesSquare} title="Сообщения" value={stats?.totalMessages} color="indigo" />
                     </div>
 
-                    {/* Секция хранилищ Cloudinary */}
-                    <div className={`mt-8 p-8 rounded-3xl border overflow-hidden relative ${isDarkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200 shadow-sm'}`}>
-                        <h2 className="text-xl font-bold mb-6 flex items-center gap-2"><HardDrive size={24} className="text-zinc-500"/> Состояние облачных хранилищ</h2>
+                    {/* Детализация хранилищ */}
+                    <div className="space-y-6">
+                        <h2 className="text-xl font-bold flex items-center gap-2 opacity-50 px-2">
+                             Аккаунты Cloudinary
+                        </h2>
                         
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {stats?.storageStats?.map((storage: any, idx: number) => (
-                                <div key={idx} className={`p-5 rounded-2xl border ${isDarkMode ? 'bg-black/50 border-zinc-800' : 'bg-zinc-50 border-zinc-200'}`}>
-                                    <div className="flex justify-between items-center mb-3">
-                                        <span className="font-bold text-sm flex items-center gap-2">
-                                            Диск {idx + 1} 
-                                            <span className="text-xs font-normal opacity-50">({storage.cloudName})</span>
-                                        </span>
-                                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-lg ${storage.isFull ? 'bg-red-500/20 text-red-500' : 'bg-lime-400/20 text-lime-600 dark:text-lime-400'}`}>
-                                            {storage.isFull ? 'Переполнен' : 'Активен'}
+                                <div key={idx} className={`p-5 rounded-3xl border ${isDarkMode ? 'bg-zinc-900/40 border-zinc-800' : 'bg-white border-zinc-200'}`}>
+                                    <div className="flex justify-between items-center mb-4">
+                                        <div className="flex items-center gap-3">
+                                             <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${storage.isFull ? 'bg-red-500/10 text-red-500' : 'bg-lime-400/10 text-lime-500'}`}>
+                                                <HardDrive size={20} />
+                                             </div>
+                                             <span className="font-bold text-sm">{storage.cloudName}</span>
+                                        </div>
+                                        <span className={`text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full ${storage.isFull ? 'bg-red-500 text-white' : 'bg-zinc-100 dark:bg-white/5 text-zinc-500'}`}>
+                                            {storage.isFull ? 'Full' : 'Active'}
                                         </span>
                                     </div>
                                     
-                                    {/* Прогресс-бар */}
-                                    <div className="w-full h-4 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden mb-2 relative">
+                                    <div className="w-full h-3 bg-zinc-100 dark:bg-white/5 rounded-full overflow-hidden mb-3">
                                         <motion.div 
                                             initial={{ width: 0 }}
                                             animate={{ width: `${Math.min(storage.percentage, 100)}%` }}
-                                            transition={{ duration: 1.5, ease: "easeOut" }}
-                                            className={`h-full rounded-full relative ${storage.percentage > 90 ? 'bg-red-500' : storage.percentage > 75 ? 'bg-yellow-500' : 'bg-lime-400'}`}
-                                        >
-                                            {/* Полосатая текстура */}
-                                            <div className="absolute inset-0 w-full h-full opacity-20" style={{ backgroundImage: 'linear-gradient(45deg, #fff 25%, transparent 25%, transparent 50%, #fff 50%, #fff 75%, transparent 75%, transparent)', backgroundSize: '1rem 1rem' }} />
-                                        </motion.div>
+                                            className={`h-full rounded-full ${storage.percentage > 90 ? 'bg-red-500' : storage.percentage > 70 ? 'bg-yellow-500' : 'bg-lime-400'}`}
+                                        />
                                     </div>
                                     
-<div className="flex justify-between text-xs font-medium opacity-60">
-    <span>Занято: {formatBytes(storage.usage)} ({storage.percentage.toFixed(1)}%)</span>
-    <span>Всего: {formatBytes(storage.limit)}</span>
-</div>                                </div>
+                                    <div className="flex justify-between text-[11px] font-bold opacity-40 uppercase tracking-tighter">
+                                        <span>{formatBytes(storage.usage)}</span>
+                                        <span>{formatBytes(storage.limit)}</span>
+                                    </div>
+                                </div>
                             ))}
                         </div>
                     </div>
                 </motion.div>
-            ) : (
+            ) : activeSection === 'music' ? (
                 <motion.div 
                     key="music"
                     initial={{ opacity: 0, y: 10 }}
@@ -350,6 +405,16 @@ if (data && data.me && !data.me.isAdmin) {
                     transition={{ duration: 0.3 }}
                 >
                      <AdminMusicPanel />
+                </motion.div>
+            ) : (
+                <motion.div
+                    key="import"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.3 }}
+                >
+                    <AdminAutoImport />
                 </motion.div>
             )}
           </AnimatePresence>

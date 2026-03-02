@@ -19,6 +19,7 @@ import { randomUUID } from 'crypto';
 import { CloudinaryService } from './cloudinary.service';
 import { Response, Request } from 'express';
 import { createReadStream, statSync, existsSync } from 'fs';
+import { Body } from '@nestjs/common';
 
 // Временное хранилище перед отправкой в Cloudinary или для локального использования
 const tempStorage = diskStorage({
@@ -110,11 +111,26 @@ export class UploadController {
   }
 
   @Post('video')
-  @UseGuards(JwtAuthGuard)
-  @UseInterceptors(FileInterceptor('file', { storage: tempStorage }))
-  async uploadVideo(@UploadedFile() file: Express.Multer.File) {
-    if (!file) throw new BadRequestException('Файл не был загружен');
-    const url = await this.cloudinaryService.uploadMedia(file.path, 'videos', 'video');
-    return { url };
-  }
+@UseGuards(JwtAuthGuard)
+@UseInterceptors(FileInterceptor('file', { storage: tempStorage }))
+async uploadVideo(
+  @UploadedFile() file: Express.Multer.File,
+  @Body('startTime') startTime?: string,
+  @Body('endTime') endTime?: string
+) {
+  if (!file) throw new BadRequestException('Файл не был загружен');
+
+  // Передаем параметры обрезки в сервис
+  const url = await this.cloudinaryService.uploadMedia(
+    file.path, 
+    'videos', 
+    'video',
+    {
+      startOffset: startTime ? parseFloat(startTime) : undefined,
+      endOffset: endTime ? parseFloat(endTime) : undefined
+    }
+  );
+
+  return { url };
+}
 }

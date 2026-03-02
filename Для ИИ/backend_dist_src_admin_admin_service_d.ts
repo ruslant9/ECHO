@@ -12,6 +12,8 @@ export declare class AdminService {
         totalComments: number;
         totalMessages: number;
         storageStats: any[];
+        totalStorageUsage: any;
+        totalStorageLimit: any;
     }>;
     controlServer(action: 'start' | 'stop' | 'restart'): Promise<boolean>;
 }

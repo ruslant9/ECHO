@@ -11,7 +11,9 @@ import * as crypto from 'crypto';
 @Injectable()
 export class MusicImportService {
   private client: YandexMusicClient;
-  private isImporting = false;
+  private queue: string[] = [];
+  private isProcessing = false;
+  private currentArtist: string | null = null;
   private TEMP_DIR = path.join(process.cwd(), 'uploads', 'temp');
 
   constructor(
@@ -27,152 +29,231 @@ export class MusicImportService {
     });
   }
 
-  private sendLog(message: string, type: 'info' | 'success' | 'warn' | 'error' = 'info') {
-    this.eventsGateway.server.emit('admin_import_log', {
-      message: `[${new Date().toLocaleTimeString()}] ${message}`,
-      type,
+  private broadcastStatus(message?: string, type: 'info' | 'success' | 'warn' | 'error' = 'info') {
+    if (message) {
+      this.eventsGateway.server.emit('admin_import_log', {
+        message: `[${new Date().toLocaleTimeString()}] ${this.currentArtist ? `[${this.currentArtist}] ` : ''}${message}`,
+        type,
+      });
+    }
+    this.eventsGateway.server.emit('admin_import_queue_update', {
+      queue: this.queue,
+      isProcessing: this.isProcessing,
+      currentArtist: this.currentArtist
     });
   }
 
-  private getNextCloudinaryAccount() {
-    const accounts = JSON.parse(process.env.CLOUDINARY_ACCOUNTS || '[]');
-    return accounts[Math.floor(Math.random() * accounts.length)];
+  private async getOrCreateArtist(yArtist: any) {
+    let dbArtist = await this.prisma.artist.findFirst({
+      where: { name: { equals: yArtist.name, mode: 'insensitive' } }
+    });
+
+    if (!dbArtist) {
+      this.broadcastStatus(`👤 Создание артиста: ${yArtist.name}`);
+      const avatar = await this.downloadAndUpload(yArtist.cover?.uri, 'avatars');
+      dbArtist = await this.prisma.artist.create({
+        data: { name: yArtist.name, avatar, bio: "Yandex Import" }
+      });
+    }
+    return dbArtist;
   }
+
+  async addToQueue(queries: string[]) {
+    const newItems = queries.map(q => q.trim()).filter(q => q && !this.queue.includes(q) && q !== this.currentArtist);
+    this.queue.push(...newItems);
+    this.broadcastStatus(`Добавлено в очередь: ${newItems.join(', ')}`, 'info');
+
+    if (!this.isProcessing) {
+      this.processQueue();
+    }
+  }
+
+  private async processQueue() {
+    if (this.queue.length === 0) {
+      this.isProcessing = false;
+      this.currentArtist = null;
+      this.broadcastStatus('🏁 Очередь пуста. Все задачи выполнены.', 'success');
+      return;
+    }
+    this.isProcessing = true;
+    this.currentArtist = this.queue.shift();
+    try {
+      await this.importArtistLogic(this.currentArtist);
+    } catch (e) {
+      this.broadcastStatus(`❌ Ошибка импорта ${this.currentArtist}: ${e.message}`, 'error');
+    }
+    this.processQueue();
+  }
+
+  private async importArtistLogic(query: string) {
+    try {
+      const search = await this.client.search.search(query, 0, 'artist');
+      const yArtist = search.result?.artists?.results?.[0];
+      if (!yArtist) {
+        this.broadcastStatus(`Артист "${query}" не найден`, 'error');
+        return;
+      }
+
+      // Артист, страницу которого мы сейчас парсим (главный артист)
+      const mainDbArtist = await this.getOrCreateArtist(yArtist);
+
+      const albResp = await this.client.artists.getArtistsDirectAlbums(String(yArtist.id));
+      const albums = albResp.result?.albums || [];
+      
+      for (const [aIdx, yAlbum] of albums.entries()) {
+        this.broadcastStatus(`💿 [${aIdx + 1}/${albums.length}] Альбом: ${yAlbum.title}`);
+        
+        const fullAlb = await this.client.albums.getAlbumsWithTracks(yAlbum.id);
+        const yTracks = (fullAlb.result as any).volumes?.flat() || [];
+
+        let dbAlbum = await this.prisma.album.findFirst({
+          where: { title: yAlbum.title, artistId: mainDbArtist.id }
+        });
+
+        if (!dbAlbum) {
+          const cover = await this.downloadAndUpload(yAlbum.coverUri, 'avatars');
+          dbAlbum = await this.prisma.album.create({
+            data: { 
+              title: yAlbum.title, 
+              artistId: mainDbArtist.id, 
+              year: yAlbum.year, 
+              coverUrl: cover 
+            }
+          });
+        }
+
+        for (const [tIdx, yTrack] of yTracks.entries()) {
+          const trackArtists = yTrack.artists || [];
+          const dbTrackArtists = [];
+
+          // Обрабатываем всех артистов трека (основного и фиты)
+          for (const yArt of trackArtists) {
+            dbTrackArtists.push(await this.getOrCreateArtist(yArt));
+          }
+
+          const mainTrackArtist = dbTrackArtists[0]; 
+          
+          // Фильтруем фиты: исключаем из списка основного артиста альбома
+          const featuredArtists = dbTrackArtists.slice(1).filter(a => a.id !== mainDbArtist.id);
+
+          // === КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ ДЛЯ ШАПКИ АЛЬБОМА ===
+          // Если в треке есть фиты, привязываем их к самому альбому/синглу
+          if (featuredArtists.length > 0) {
+            await this.prisma.album.update({
+              where: { id: dbAlbum.id },
+              data: {
+                featuredArtists: {
+                  connect: featuredArtists.map(a => ({ id: a.id }))
+                }
+              }
+            });
+            this.broadcastStatus(`  👥 Связь артистов с альбомом обновлена для: ${yTrack.title}`, 'info');
+          }
+          // =============================================
+
+          const exists = await this.prisma.track.findFirst({
+            where: { title: yTrack.title, albumId: dbAlbum.id },
+            include: { featuredArtists: true }
+          });
+
+          // Проверка и фикс уже существующих треков, если импорта не было раньше
+          if (exists) {
+            if (exists.featuredArtists.length < featuredArtists.length) {
+              await this.prisma.track.update({
+                where: { id: exists.id },
+                data: {
+                  featuredArtists: {
+                    connect: featuredArtists.map(a => ({ id: a.id }))
+                  }
+                }
+              });
+              this.broadcastStatus(`  🔧 Добавлены недостающие фиты в трек: ${yTrack.title}`, 'info');
+            }
+            continue;
+          }
+
+          this.broadcastStatus(`  🎵 [${tIdx + 1}/${yTracks.length}] ${yTrack.title}`);
+          
+          try {
+            const info = await this.client.tracks.getDownloadInfo(String(yTrack.id));
+            const best = info.result.reduce((p, c) => (c.bitrateInKbps > p.bitrateInKbps ? c : p));
+            const xml = await axios.get(best.downloadInfoUrl);
+            const host = xml.data.match(/<host>(.*?)<\/host>/)?.[1];
+            const pathVal = xml.data.match(/<path>(.*?)<\/path>/)?.[1];
+            const ts = xml.data.match(/<ts>(.*?)<\/ts>/)?.[1];
+            const s = xml.data.match(/<s>(.*?)<\/s>/)?.[1];
+            const sign = crypto.createHash('md5').update('XGRlBW9FXlekgbPrRHuSiA' + pathVal.substring(1) + s).digest('hex');
+            const directUrl = `https://${host}/get-mp3/${sign}/${ts}${pathVal}`;
+
+            const audioUrl = await this.downloadAndUpload(directUrl, 'audio');
+            if (audioUrl) {
+              await this.prisma.track.create({
+                data: {
+                  title: yTrack.title,
+                  url: audioUrl,
+                  duration: Math.floor(yTrack.durationMs / 1000),
+                  artistId: mainTrackArtist.id, 
+                  albumId: dbAlbum.id,
+                  coverUrl: dbAlbum.coverUrl,
+                  trackNumber: tIdx + 1,
+                  featuredArtists: {
+                    connect: featuredArtists.map(a => ({ id: a.id }))
+                  }
+                }
+              });
+            }
+          } catch (trackErr) {
+            this.broadcastStatus(`  ⚠️ Ошибка скачивания трека: ${yTrack.title}`, 'warn');
+          }
+        }
+      }
+      this.broadcastStatus(`✅ Артист "${yArtist.name}" готов!`, 'success');
+    } catch (e) {
+      throw e;
+    }
+  }
+
 
   private async downloadAndUpload(url: string | undefined, type: 'avatars' | 'audio'): Promise<string | null> {
     if (!url) return null;
-    const MAX_RETRIES = 3;
     let cleanUrl = url.replace('%%', type === 'audio' ? '' : '1000x1000');
     if (!cleanUrl.startsWith('http')) cleanUrl = `https://${cleanUrl}`;
 
     if (!fs.existsSync(this.TEMP_DIR)) fs.mkdirSync(this.TEMP_DIR, { recursive: true });
     const tempFilePath = path.join(this.TEMP_DIR, `${crypto.randomUUID()}${type === 'audio' ? '.mp3' : '.jpg'}`);
 
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-      try {
-        const response = await axios({ url: cleanUrl, method: 'GET', responseType: 'stream', timeout: 60000 });
-        const writer = fs.createWriteStream(tempFilePath);
-        response.data.pipe(writer);
-        
-        // Исправленная строка:
-        await new Promise<void>((res, rej) => { 
-          writer.on('finish', () => res()); 
-          writer.on('error', (err) => rej(err)); 
-        });
-
-        const acc = this.getNextCloudinaryAccount();
-        cloudinary.config({ cloud_name: acc.cloud_name, api_key: acc.api_key, api_secret: acc.api_secret, secure: true });
-
-        const result = await cloudinary.uploader.upload(tempFilePath, {
-          folder: type,
-          resource_type: type === 'audio' ? 'video' : 'image',
-        });
-        
-        if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
-        return result.secure_url;
-      } catch (e) {
-        if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
-        if (attempt === MAX_RETRIES) return null;
-        await new Promise(r => setTimeout(r, 2000));
-      }
-    }
-    return null;
-  }
-
-  async importArtist(query: string) {
-    if (this.isImporting) {
-      this.sendLog('Предупреждение: Импорт уже запущен', 'warn');
-      return;
-    }
-    this.isImporting = true;
-    this.sendLog(`🔍 Начинаю поиск артиста: "${query}"`);
-
     try {
-      const search = await this.client.search.search(query, 0, 'artist');
-      const yArtist = search.result?.artists?.results?.[0];
-      if (!yArtist) {
-        this.sendLog('❌ Артист не найден', 'error');
-        return;
-      }
+      const response = await axios({ url: cleanUrl, method: 'GET', responseType: 'stream', timeout: 60000 });
+      const writer = fs.createWriteStream(tempFilePath);
+      response.data.pipe(writer);
 
-      // Артист
-      let dbArtist = await this.prisma.artist.findFirst({
-        where: { name: { equals: yArtist.name, mode: 'insensitive' } }
+      await new Promise<void>((resolve, reject) => {
+        writer.on('finish', () => resolve());
+        writer.on('error', (err) => reject(err));
       });
 
-      if (!dbArtist) {
-        this.sendLog(`👤 Создание артиста: ${yArtist.name}`);
-        const avatar = await this.downloadAndUpload(yArtist.cover?.uri, 'avatars');
-        dbArtist = await this.prisma.artist.create({
-          data: { name: yArtist.name, avatar, bio: "Yandex Import" }
-        });
-      }
+      const accounts = JSON.parse(process.env.CLOUDINARY_ACCOUNTS || '[]');
+      const acc = accounts[Math.floor(Math.random() * accounts.length)];
+      cloudinary.config({ cloud_name: acc.cloud_name, api_key: acc.api_key, api_secret: acc.api_secret, secure: true });
 
-      // Альбомы
-      const albResp = await this.client.artists.getArtistsDirectAlbums(String(yArtist.id));
-      for (const yAlbum of (albResp.result?.albums || [])) {
-        const fullAlb = await this.client.albums.getAlbumsWithTracks(yAlbum.id);
-        const yTracks = (fullAlb.result as any).volumes?.flat() || [];
-
-        let dbAlbum = await this.prisma.album.findFirst({
-          where: { title: yAlbum.title, artistId: dbArtist.id }
-        });
-
-        if (!dbAlbum) {
-          this.sendLog(`💿 Загрузка альбома: ${yAlbum.title}`);
-          const cover = await this.downloadAndUpload(yAlbum.coverUri, 'avatars');
-          dbAlbum = await this.prisma.album.create({
-            data: { title: yAlbum.title, artistId: dbArtist.id, year: yAlbum.year, coverUrl: cover }
-          });
-        }
-
-        // Треки
-        let trackCounter = 1;
-        for (const yTrack of yTracks) {
-          const exists = await this.prisma.track.findFirst({
-            where: { title: yTrack.title, albumId: dbAlbum.id }
-          });
-
-          if (exists) {
-            trackCounter++;
-            continue;
-          }
-
-          this.sendLog(`  🎵 [${trackCounter}/${yTracks.length}] Скачивание: ${yTrack.title}`);
-          
-          // Получаем прямую ссылку
-          const info = await this.client.tracks.getDownloadInfo(String(yTrack.id));
-          const best = info.result.reduce((p, c) => (c.bitrateInKbps > p.bitrateInKbps ? c : p));
-          const xml = await axios.get(best.downloadInfoUrl);
-          const host = xml.data.match(/<host>(.*?)<\/host>/)?.[1];
-          const pathVal = xml.data.match(/<path>(.*?)<\/path>/)?.[1];
-          const ts = xml.data.match(/<ts>(.*?)<\/ts>/)?.[1];
-          const s = xml.data.match(/<s>(.*?)<\/s>/)?.[1];
-          const sign = crypto.createHash('md5').update('XGRlBW9FXlekgbPrRHuSiA' + pathVal.substring(1) + s).digest('hex');
-          const directUrl = `https://${host}/get-mp3/${sign}/${ts}${pathVal}`;
-
-          const audioUrl = await this.downloadAndUpload(directUrl, 'audio');
-          if (audioUrl) {
-            await this.prisma.track.create({
-              data: {
-                title: yTrack.title,
-                url: audioUrl,
-                duration: Math.floor(yTrack.durationMs / 1000),
-                artistId: dbArtist.id,
-                albumId: dbAlbum.id,
-                coverUrl: dbAlbum.coverUrl,
-                trackNumber: trackCounter
-              }
-            });
-          }
-          trackCounter++;
-        }
-      }
-      this.sendLog('✅ Импорт успешно завершен!', 'success');
+      const result = await cloudinary.uploader.upload(tempFilePath, {
+        folder: type,
+        resource_type: type === 'audio' ? 'video' : 'image',
+      });
+      fs.unlinkSync(tempFilePath);
+      return result.secure_url;
     } catch (e) {
-      this.sendLog(`❌ Ошибка импорта: ${e.message}`, 'error');
-    } finally {
-      this.isImporting = false;
+      if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
+      return null;
     }
+  }
+
+  getQueueStatus() {
+    return { queue: this.queue, isProcessing: this.isProcessing, currentArtist: this.currentArtist };
+  }
+
+  clearQueue() {
+    this.queue = [];
+    this.broadcastStatus('🗑 Очередь очищена', 'warn');
   }
 }

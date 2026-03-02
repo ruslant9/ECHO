@@ -158,32 +158,75 @@ export class CloudinaryService {
     }
   }
 
-  async uploadMedia(filePath: string, folder: string, resourceType: 'video' | 'raw' | 'auto'): Promise<string> {
-    const account = await this.getAvailableAccount();
-    
-    try {
-      // Для видео и аудио мы делегируем сжатие самому Cloudinary,
-      // чтобы не вешать процессор нашего сервера.
-      // Transformation quality: "auto" сожмет медиа без сильной потери качества.
-      const result = await cloudinary.uploader.upload(filePath, {
-        folder,
-        resource_type: resourceType,
-        cloud_name: account.cloud_name,
-        api_key: account.api_key,
-        api_secret: account.api_secret,
-        // Эта трансформация применится ДО сохранения, то есть тяжелый оригинал будет удален
-        transformation:[
-          { quality: 'auto:good' } 
-        ]
-      });
+  async deleteFileByUrl(url: string): Promise<void> {
+  if (!url || !url.includes('cloudinary')) return;
 
-      return result.secure_url;
-    } catch (e) {
-      this.logger.error(e);
-      throw new InternalServerErrorException('Ошибка при загрузке медиафайла');
-    } finally {
-      // Удаляем локальный файл после загрузки
-      await fs.unlink(filePath).catch(() => {});
-    }
+  try {
+    const urlParts = url.split('/');
+    // Ищем cloud_name (обычно 4-й элемент в https://res.cloudinary.com/name/...)
+    const cloudNameFromUrl = urlParts[3];
+
+    const account = this.accounts.find(acc => acc.cloud_name === cloudNameFromUrl);
+    if (!account) return;
+
+    // Регулярка для извлечения public_id (все между /v12345/ и расширением)
+    const regex = /\/v\d+\/(.+)\.[a-z0-9]+$/;
+    const match = url.match(regex);
+    if (!match) return;
+
+    const publicId = match[1];
+    const resourceType = url.includes('/video/') ? 'video' : 'image';
+
+    cloudinary.config({
+      cloud_name: account.cloud_name,
+      api_key: account.api_key,
+      api_secret: account.api_secret,
+      secure: true
+    });
+
+    await cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
+  } catch (e) {
+    // Не выбрасываем ошибку наружу, чтобы не прерывать цикл удаления остальных файлов
+    this.logger.error(`[Cloudinary] Error deleting ${url}: ${e.message}`);
   }
+}
+
+
+ async uploadMedia(
+  filePath: string, 
+  folder: string, 
+  resourceType: 'video' | 'raw' | 'auto',
+  options?: { startOffset?: number, endOffset?: number } // Добавили опции
+): Promise<string> {
+  const account = await this.getAvailableAccount();
+  
+  try {
+    const uploadOptions: any = {
+      folder,
+      resource_type: resourceType,
+      cloud_name: account.cloud_name,
+      api_key: account.api_key,
+      api_secret: account.api_secret,
+    };
+
+    // Если переданы тайминги, добавляем трансформацию Cloudinary
+    if (options?.startOffset !== undefined && options?.endOffset !== undefined) {
+      uploadOptions.transformation = [
+        { 
+          start_offset: options.startOffset, 
+          end_offset: options.endOffset,
+          quality: 'auto' 
+        }
+      ];
+    }
+
+    const result = await cloudinary.uploader.upload(filePath, uploadOptions);
+    return result.secure_url;
+  } catch (e) {
+    this.logger.error(e);
+    throw new Error('Cloudinary upload failed');
+  } finally {
+    await fs.unlink(filePath).catch(() => {});
+  }
+}
 }
